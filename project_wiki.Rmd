@@ -1,0 +1,489 @@
+---
+title: "Small RNAseq: Differential Expression Analysis"
+date: "`r Sys.Date()`"
+author:
+  - name: Arun Seetharam
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+options(max.print = "75")
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
+)
+knitr::opts_knit$set(width = 75)
+```
+
+# Downloading datasets
+
+## Raw data
+
+Raw data was downloaded from the sequencing facility using the secure link, with `wget` command. The downloaded files were checked for md5sum and compared against list of files expected as per the input samples provided.
+
+```{bash, eval=FALSE, engine="sh"}
+wget https://oc1.rnet.missouri.edu/xyxz
+# link masked 
+# GEO link will be included later
+# merge files of same samples (technical replicates)
+paste <(ls *_L001_R1_001.fastq.gz) <(ls *_L002_R1_001.fastq.gz) | \
+   sed 's/\t/ /g' |\
+   awk '{print "cat",$1,$2" > "$1}' |\
+   sed 's/_L001_R1_001.fastq.gz/.fq.gz/2' > concatenate.sh
+chmod +x concatenate.sh
+sh concatenate.sh
+```
+
+
+## Genome/annotation
+
+Additional files required for the analyses were downloaded from [GenCode](https://www.gencodegenes.org/mouse/). The downloaded files are as follows:
+
+```{bash eval = FALSE} 
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/GRCm39.primary_assembly.genome.fa.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/gencode.vM30.annotation.gff3.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/gencode.vM30.annotation.gtf.gz
+gunzip GRCm39.primary_assembly.genome.fa.gz
+gunzip gencode.vM30.annotation.gff3.gz
+gunzip gencode.vM30.annotation.gtf.gz
+```
+
+
+## QC (bfore processing)
+
+```{bash eval = FALSE} 
+salloc -N 1 --exclusive -p amd -t 8:00:00
+conda activate smallrna
+for fq in *.fq.gz; do
+  fastqc --threads $SLURM_JOB_CPUS_PER_NODE $fq;
+done
+mkdir -p fastqc_pre
+mv *.zip *.html fastqc_pre/
+```
+
+
+# Mapping
+
+To index the genome, following command was run (in an interactive session).
+
+```{bash eval = FALSE} 
+fastaGenome="GRCm39.genome.fa"
+gtf="gencode.vM30.annotation.gtf"
+STAR --runThreadN $SLURM_JOB_CPUS_PER_NODE \
+     --runMode genomeGenerate \
+     --genomeDir $(pwd) \
+     --genomeFastaFiles $fastaGenome \
+     --sjdbGTFfile $gtf \
+     --sjdbOverhang 1
+```
+Each `fastq` file was mapped to the indexed genome as using `runSTAR_map.sh` script shown below:
+
+```{bash eval = FALSE}
+#!/bin/bash
+read1=$1
+STARgenomeDir=$(pwd)
+# illumina adapter
+adapterseq="AGATCGGAAGAGC"
+STAR \
+    --genomeDir ${STARgenomeDir} \
+    --readFilesIn ${read1} \
+    --outSAMunmapped Within \
+    --readFilesCommand zcat \
+    --outSAMtype BAM SortedByCoordinate \
+    --quantMode GeneCounts \
+    --outFilterMultimapNmax 20 \
+    --clip3pAdapterSeq ${adapterseq} \
+    --clip3pAdapterMMp 0.1 \
+    --outFilterMismatchNoverLmax 0.03 \
+    --outFilterScoreMinOverLread 0 \
+    --outFilterMatchNminOverLread 0 \
+    --outFilterMatchNmin 16 \
+    --alignSJDBoverhangMin 1000 \ 
+    --alignIntronMax 1 \
+    --runThreadN ${SLURM_JOB_CPUS_PER_NODE} \
+    --genomeLoad LoadAndKeep \
+    --limitBAMsortRAM 30000000000 \
+    --outSAMheaderHD "@HD VN:1.4 SO:coordinate"
+```
+
+Mapping was run with a simple loop:
+
+```{bash eval = FALSE}
+for fq in *.fq.gz; do
+  runSTAR_map.sh $fq;
+done
+```
+
+# Counting
+
+The bam files were then used for counting number of reads for each feature type in the GTF file.
+`featureCounts` from `subread` package was used for this purpose.
+
+```{bash eval = FALSE}
+gtf="gencode.vM30.annotation.gtf"
+featureCounts \
+    -T ${SLURM_JOB_CPUS_PER_NODE} \
+    -a ${gtf} 
+    -o output_counts_subreads.txt \
+    --tmpDir ./tmp \
+    -t "transcript" \
+    --primary \
+    --ignoreDup *.bam
+# clean counts table:
+cut -f 1,7- output_counts_subreads.txt |\
+    grep -v "^#" |\
+    sed 's/.bam//g' > processed_counts.tsv
+```
+
+
+Create a list of `gene_type` and `gene_id` parsing the GTF file.
+
+```{bash eval = FALSE}
+awk 'BEGIN{OFS=FS="\t"} $3=="gene" {split($9,a,";"); print a[1], a[2]}' ${gtf} |\
+    awk '{print $4"\t"$2}' |\
+    sed 's/"//g' > GeneType_GeneID.tsv
+mkdir -p groups
+awk '{print > $1"_ids.txt"}' GeneType_GeneID.tsv
+mv *_ids.txt groups/
+cp processed_counts.tsv groups/
+cd groups
+for group in *_ids.txt; do
+    cut -f 2 ${group} > .temp
+    grep -Fw -f .temp processed_counts.tsv >> ${group%.*}_counts.txt;
+done
+```
+
+For creating a counts files that only includes the groups categorized as `ncRNA`, a file with needed feature types was created (`needed_group.txt`). The contents are:
+
+```{bash eval = FALSE}
+lncRNA
+miRNA
+misc_RNA
+ribozyme
+rRNA
+scaRNA
+scRNA
+snoRNA
+snRNA
+sRNA
+Mt_rRNA
+Mt_tRNA
+```
+
+```{bash eval = FALSE}
+head -n 1 processed_counts.tsv > noncoding_counts.tsv;
+while read line; do 
+    cat ${line}_ids_counts.txt;
+done<needed_group.txt >> noncoding_counts.tsv;
+```
+
+The samples files (`samples.tsv`) were also created with the following contents:
+
+```
+Sample  Group
+Dif_D6_1_S4     Diff
+Dif_D6_2_S3     Diff
+Dif_D6_3_S2     Diff
+Dif_D6_4_S1     Diff
+Undif_D2_1_S8   Undf
+Undif_D2_2_S7   Undf
+Undif_D2_3_S6   Undf
+Undif_D2_4_S5   Undf
+```
+
+This `noncoding_counts.tsv` and `samples.tsv` files was used for `DESeq2` analyses.
+
+# DESeq2
+
+For the next steps, we used `DESeq2` for performing the DE analyses. Results were visualized as volcano plots and tables were exported to excel.
+
+
+## Load packages
+
+```{r, warnings=TRUE, message=FALSE}
+setwd("/work/LAS/geetu-lab/arnstrm/smRNAseq.mm10")
+library(tidyverse)
+library(DESeq2)
+library(RColorBrewer)
+library(plotly)
+library(scales)
+library(pheatmap)
+library(genefilter)
+library(ggrepel)
+```
+
+## Import counts and sample metadata
+
+
+The `counts` data and its associated metadata (`coldata`) are imported for analyses.
+
+```{r dataset, warnings=TRUE, message=FALSE}
+counts = 'assets/noncoding_counts.tsv'
+groupFile = 'assets/samples.tsv'
+coldata <-
+  read.csv(
+    groupFile,
+    row.names = 1,
+    sep = "\t",
+    stringsAsFactors = TRUE
+  )
+cts <- as.matrix(read.csv(counts, sep = "\t", row.names = "Geneid"))
+```
+
+Inspect the `coldata`.
+
+```{r coldata}
+DT::datatable(coldata)
+```
+Reorder columns of `cts` according to `coldata` rows. Check if samples in both files match.
+
+```{r order, warnings=TRUE, message=FALSE}
+colnames(cts)
+all(rownames(coldata) %in% colnames(cts))
+cts <- cts[, rownames(coldata)]
+```
+
+## Normalize
+
+The batch corrected read counts are then used for running DESeq2 analyses
+
+```{r deseq2, warnings=TRUE, message=FALSE}
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ Group)
+vsd <- vst(dds, blind = FALSE)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep, ]
+dds <- DESeq(dds)
+dds
+```
+
+
+```{r vst, warnings=TRUE, message=FALSE}
+vst <- assay(vst(dds))
+vsd <- vst(dds, blind = FALSE)
+pcaData <-
+  plotPCA(vsd,
+          intgroup = "Group",
+          returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+```
+
+
+## PCA plot for QC
+
+PCA plot for the dataset that includes all libraries.
+
+```{r pcaFull_comp, warnings=TRUE, message=FALSE}
+rv <- rowVars(assay(vsd))
+select <-
+  order(rv, decreasing = TRUE)[seq_len(min(500, length(rv)))]
+pca <- prcomp(t(assay(vsd)[select, ]))
+percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
+intgroup = "Group"
+intgroup.df <- as.data.frame(colData(vsd)[, intgroup, drop = FALSE])
+group <- if (length(intgroup) == 1) {
+  factor(apply(intgroup.df, 1, paste, collapse = " : "))
+}
+d <- data.frame(
+  PC1 = pca$x[, 1],
+  PC2 = pca$x[, 2],
+  intgroup.df,
+  name = colnames(vsd)
+)
+```
+
+plot PCA for components 1 and 2
+
+```{r pcaFull_C1-C2, fig.cap="PCA plot for the first 2 principal components", fig.width=8, fig.height=5}
+g <- ggplot(d, aes(PC1, PC2, color = Group)) +
+  scale_shape_manual(values = 1:8) +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_point(size = 2, stroke = 2) +
+  xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
+  ylab(paste("PC2", round(percentVar[2] * 100, 2), "% variance"))
+ggplotly(g)
+```
+
+## Sample distance for QC
+
+
+```{r distance, fig.cap="Euclidean distance between samples", fig.width=8, fig.height=5}
+sampleDists <- dist(t(assay(vsd)))
+sampleDistMatrix <- as.matrix( sampleDists )
+rownames(sampleDistMatrix) <- colnames(vsd)
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists,
+         col = colors)
+
+```
+
+## Set contrasts and find DE genes
+
+```{r cotnrasts, warnings=TRUE, message=FALSE}
+resultsNames(dds)
+res.UndfvsDiff <- results(dds, contrast = c("Group", "Undf", "Diff"))
+table(res.UndfvsDiff$padj < 0.05)
+res.UndfvsDiff <- res.UndfvsDiff[order(res.UndfvsDiff$padj),]
+res.UndfvsDiffdata <-
+  merge(
+    as.data.frame(res.UndfvsDiff),
+    as.data.frame(counts(dds, normalized = TRUE)),
+    by = "row.names",
+    sort = FALSE
+  )
+names(res.UndfvsDiffdata)[1] <- "Gene"
+write_delim(res.UndfvsDiffdata, file = "DESeq2results-UndfvsDiff_fc.tsv", delim = "\t")
+```
+ 
+
+
+## Volcano plots
+
+```{r martdata}
+mart <-
+  read.csv(
+    "assets/mart_export.txt",
+    sep = "\t",
+    stringsAsFactors = TRUE,
+    header = TRUE
+  ) #this object was obtained from Ensembl as we illustrated in "Creating gene lists"
+```
+
+
+```{r volcano2}
+volcanoPlots2 <-
+  function(res.se,
+           string,
+           first,
+           second,
+           color1,
+           color2,
+           color3,
+           ChartTitle) {
+    res.se <- res.se[order(res.se$padj), ]
+    res.se <-
+      rownames_to_column(as.data.frame(res.se[order(res.se$padj), ]))
+    names(res.se)[1] <- "Gene"
+    res.data <-
+      merge(res.se,
+            mart,
+            by.x = "Gene",
+            by.y = "geneid.version")
+    res.data <- res.data %>% mutate_all(na_if, "")
+    res.data <- res.data %>% mutate_all(na_if, " ")
+    res.data <-
+      res.data %>% mutate(gene_symbol = coalesce(gene.symbol, Gene))
+    res.data$diffexpressed <- "other.genes"
+    res.data$diffexpressed[res.data$log2FoldChange >= 1 &
+                             res.data$padj <= 0.05] <-
+      paste("Higher expression in", first)
+    res.data$diffexpressed[res.data$log2FoldChange <= -1 &
+                             res.data$padj <= 0.05] <-
+      paste("Higher expression in", second)
+    res.data$delabel <- ""
+    res.data$delabel[res.data$log2FoldChange >= 1
+                     & res.data$padj <= 0.05
+                     &
+                       !is.na(res.data$padj)] <-
+      res.data$gene_symbol[res.data$log2FoldChange >= 1
+                           &
+                             res.data$padj <= 0.05
+                           &
+                             !is.na(res.data$padj)]
+    res.data$delabel[res.data$log2FoldChange <= -1
+                     & res.data$padj <= 0.05
+                     &
+                       !is.na(res.data$padj)] <-
+      res.data$gene_symbol[res.data$log2FoldChange <= -1
+                           &
+                             res.data$padj <= 0.05
+                           &
+                             !is.na(res.data$padj)]
+    ggplot(res.data,
+             aes(
+               x = log2FoldChange,
+               y = -log10(padj),
+               col = diffexpressed,
+               label = delabel
+             )) +
+      geom_point(alpha = 0.5) +
+      xlim(-20, 20) +
+      theme_classic() +
+      scale_color_manual(name = "Expression", values = c(color1, color2, color3)) +
+      geom_text_repel(
+        data = subset(res.data, padj <= 0.05),
+        max.overlaps  = 15,
+        show.legend = F,
+        min.segment.length = Inf,
+        seed = 42,
+        box.padding = 0.5
+      ) +
+      ggtitle(ChartTitle) +
+      xlab(paste("log2 fold change")) +
+      ylab("-log10 pvalue (adjusted)") +
+      theme(legend.text.align = 0)
+}
+```
+```{r volcano1, fig.cap="Undifferenciated vs. Differenciated", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.UndfvsDiff,
+  "UndfvsDiff",
+  "Undf",
+  "Diff",
+  "green",
+  "blue",
+  "grey",
+  ChartTitle = "Undifferenciated vs. Differenciated"
+)
+```
+## Heatmap
+
+Heatmap for the top 30 variable genes:
+
+```{r heatmap, fig.cap="Heat map for top 30 variable genes", fig.width=8, fig.height=12}
+topVarGenes <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 30)
+mat  <- assay(vsd)[ topVarGenes, ]
+mat  <- mat - rowMeans(mat)
+mat2 <-    merge(mat,
+          mart,
+          by.x = 'row.names',
+          by.y = "geneid.version")
+rownames(mat2) <- mat2[,10]
+mat2 <- mat2[2:9]
+heat_colors <- brewer.pal(9, "YlOrRd")
+g <- pheatmap(
+      mat2,
+      color = heat_colors,
+      main = "Top 30 variable smRNA/lncRNA genes",
+      cluster_rows = F,
+      cluster_cols  = T,
+      show_rownames = T,
+      border_color = NA,
+      fontsize = 10,
+      scale = "row",
+      fontsize_row = 10
+    )
+    g
+```
+
+
