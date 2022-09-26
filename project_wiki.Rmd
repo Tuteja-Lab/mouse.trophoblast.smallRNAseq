@@ -185,7 +185,7 @@ The full table is as follows:
 
 ```{r table1, warnings=TRUE, message=FALSE, results='asis'}
 library(knitr)
-setwd("/work/LAS/geetu-lab/arnstrm/smRNAseq.ShortTitle")
+setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq")
 file1="assets/GeneType_Group.tsv"
 info <-
   read.csv(
@@ -232,7 +232,7 @@ library(plotly)
 ```
 
 ```{r dataload, warnings=TRUE, message=FALSE}
-setwd("/work/LAS/geetu-lab/arnstrm/smRNAseq.ShortTitle")
+setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq")
 file1="assets/processed_counts_star.tsv"
 file2="assets/summary_stats_star.tsv"
 counts <-
@@ -280,7 +280,7 @@ subread.long$Assignments <-
 
 
 
-```{r readstat1, fig.cap="STAR read mapping and feature assignment", fig.width=9, fig.height=7}
+```{r readstat1, fig.cap="Figure 1: STAR read mapping and feature assignment. Here, `N_input` is total input reads, `N_unmapped` is reads that were either too short to map after adapter removal or had higher mismatch rate to place reliably on the genome, `N_multimapping` is reads mapped to multiple loci, `N_unique` is reads mapped to unique loci. A subset of `N_unique` reads that were unable to clearly assign to a feature or assign any feature at all are grouped as `N_ambigious` or `N_noFeature`, respectively", fig.width=9, fig.height=7}
 ggplot(subread.long, aes(x = Assignments, y = Count, fill = Assignments)) +
   geom_bar(stat = 'identity') +
   labs(x = "Subread assingments", y = "reads") + theme_minimal() +
@@ -304,10 +304,10 @@ ggplot(subread.long, aes(x = Assignments, y = Count, fill = Assignments)) +
   facet_wrap("Sample", scales = "free_y", ncol = 4) 
 ```
 
-```{r readstat2, fig.cap="Features with read counts", fig.width=9, fig.height=7}
-g <- ggplot(counts.long, aes(x = Group, y = Count, fill = GeneType)) +
+```{r readstat2, fig.cap="Figure 2: Features with read counts", fig.width=9, fig.height=7}
+g <- ggplot(counts.long, aes(x = Group, y = Count, fill = Group)) +
   geom_bar(stat = 'sum') +
-  labs(x = "gene type", y = "read counts") + theme_minimal() +
+  labs(x = "biotype", y = "read counts") + theme_minimal() +
   scale_y_continuous(labels = label_comma()) +
   theme(
     axis.text.x = element_text(
@@ -330,17 +330,64 @@ g <- ggplot(counts.long, aes(x = Group, y = Count, fill = GeneType)) +
 g
 ```
 
+
+```{r readstat3, fig.cap="Figure 3: non-coding biotype read counts", fig.width=12, fig.height=6}
+counts.nc <- filter(counts.long, Group %in% "non_conding_RNA" )
+counts.nc$GeneType <-
+  factor(
+    counts.nc$GeneType,
+    levels = c(
+      "miRNA",
+      "misc_RNA",
+      "snoRNA",
+      "snRNA",
+      "sRNA",
+      "scRNA",
+      "scaRNA",
+      "Mt_tRNA",
+      "Mt_rRNA",
+      "rRNA",
+      "ribozyme"
+    )
+  )
+
+g <- ggplot(counts.nc, aes(x = GeneType, y = Count, fill = GeneType)) +
+  geom_bar(stat = 'sum') +
+  labs(x = "biotype", y = "read counts") + theme_minimal() +
+  scale_y_continuous(labels = label_comma()) +
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      vjust = 1,
+      hjust = 1,
+      size = 12
+    ),
+    strip.text = element_text(
+      face = "bold",
+      color = "gray35",
+      hjust = 0,
+      size = 10
+    ),
+    strip.background = element_rect(fill = "white", linetype = "blank"),
+    legend.position = "none"
+  ) +
+  facet_wrap("Sample", scales = "free_y", ncol = 4)
+#ggplotly(g)
+g
+```
+
+
 subset the counts file to select only smallRNA genes
 
 ```{r subset, warnings=TRUE, message=FALSE}
-smrna <- c('miRNA',
+snrna <- c('miRNA',
            'misc_RNA',
            'scRNA',
            'snRNA',
            'snoRNA',
            'sRNA',
            'scaRNA')
-cts <- filter(counts, GeneType %in% smrna) %>%
+cts <- filter(counts, GeneType %in% snrna) %>%
   select(Geneid, Dif_D6_1_S4:Undif_D2_4_S5)
 write_delim(cts, file = "assets/noncoding_counts_star.tsv", delim = "\t")
 ```
@@ -357,7 +404,7 @@ For the next steps, we used `DESeq2` for performing the DE analyses. Results wer
 ## Load packages
 
 ```{r, warnings=TRUE, message=FALSE}
-setwd("/work/LAS/geetu-lab/arnstrm/smRNAseq.mm10")
+setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq")
 library(DESeq2)
 library(RColorBrewer)
 library(pheatmap)
@@ -384,11 +431,11 @@ cts <- as.matrix(read.csv(counts, sep = "\t", row.names = "Geneid"))
 
 ```
 
-Inspect the `coldata`.
-
-```{r coldata}
-DT::datatable(coldata)
-```
+  <!-- Inspect the `cts` data. -->
+  
+  <!-- ```{r ctscheck} -->
+  <!-- DT::datatable(cts) -->
+  <!-- ``` -->
 Reorder columns of `cts` according to `coldata` rows. Check if samples in both files match.
 
 ```{r order, warnings=TRUE, message=FALSE}
@@ -449,7 +496,7 @@ d <- data.frame(
 
 plot PCA for components 1 and 2
 
-```{r pcaFull_C1-C2, fig.cap="PCA plot for the first 2 principal components", fig.width=8, fig.height=5}
+```{r pcaFull_C1-C2, fig.cap="Figure 4: PCA plot for the first 2 principal components", fig.width=8, fig.height=5}
 g <- ggplot(d, aes(PC1, PC2, color = Group)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
@@ -463,7 +510,7 @@ ggplotly(g)
 ## Sample distance for QC
 
 
-```{r distance, fig.cap="Euclidean distance between samples", fig.width=8, fig.height=5}
+```{r distance, fig.cap="Figure 5: Euclidean distance between samples", fig.width=8, fig.height=5}
 sampleDists <- dist(t(assay(vsd)))
 sampleDistMatrix <- as.matrix( sampleDists )
 rownames(sampleDistMatrix) <- colnames(vsd)
@@ -569,21 +616,21 @@ volcanoPlots2 <-
       xlim(-20, 20) +
       theme_classic() +
       scale_color_manual(name = "Expression", values = c(color1, color2, color3)) +
-      geom_text_repel(
-        data = subset(res.data, padj <= 0.05),
-        max.overlaps  = 15,
-        show.legend = F,
-        min.segment.length = Inf,
-        seed = 42,
-        box.padding = 0.5
-      ) +
+      # geom_text_repel(
+      #   data = subset(res.data, padj <= 0.05),
+      #   max.overlaps  = 15,
+      #   show.legend = F,
+      #   min.segment.length = Inf,
+      #   seed = 42,
+      #   box.padding = 0.5
+      # ) +
       ggtitle(ChartTitle) +
       xlab(paste("log2 fold change")) +
       ylab("-log10 pvalue (adjusted)") +
       theme(legend.text.align = 0)
 }
 ```
-```{r volcano1, fig.cap="Undifferentiated vs. Differentiated", fig.width=8, fig.height=5}
+```{r volcano1, fig.cap="Figure 6: Volcano plot showing genes overexpressed in undifferentiated and differentiated states.", fig.width=8, fig.height=5}
 g <- volcanoPlots2(
   res.UndfvsDiff,
   "UndfvsDiff",
@@ -600,7 +647,7 @@ ggplotly(g)
 
 Heatmap for the top 30 variable genes:
 
-```{r heatmap, fig.cap="Heat map for top 30 variable genes", fig.width=8, fig.height=12}
+```{r heatmap, fig.cap="Figure 7: Heat map for top 30 variable small RNA genes", fig.width=8, fig.height=12}
 topVarGenes <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 30)
 mat  <- assay(vsd)[ topVarGenes, ]
 mat  <- mat - rowMeans(mat)
@@ -614,7 +661,7 @@ heat_colors <- brewer.pal(9, "YlOrRd")
 g <- pheatmap(
       mat2,
       color = heat_colors,
-      main = "Top 30 variable smRNA/lncRNA genes",
+      main = "Top 30 variable small RNA genes",
       cluster_rows = F,
       cluster_cols  = T,
       show_rownames = T,
@@ -629,5 +676,6 @@ g <- pheatmap(
 # Session Information
 
 ```{r sessioninfo}
+options(max.print=999999)
 sessionInfo()
 ```
