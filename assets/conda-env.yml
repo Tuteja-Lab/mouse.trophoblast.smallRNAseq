@@ -1,0 +1,13 @@
+name: smallrna
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - subread=2.0.1=h5bf99c6_1
+  - cutadapt=2.6=py37h516909a_0
+  - fastqc=0.11.9=hdfd78af_1
+  - pip=22.1.2=py37h06a4308_0
+  - python=3.7.13=h12debd9_0
+  - setuptools=63.4.1=py37h06a4308_0
+  - star=2.7.10a=h9ee0642_0
+  - trim-galore=0.6.7=hdfd78af_0
