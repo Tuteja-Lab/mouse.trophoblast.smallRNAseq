@@ -672,6 +672,10 @@ g <- pheatmap(
     )
     g
 ```
+## MultiQC report:
+
+MultiQC report is available at this [link](assets/multiqc_report.html){target="_blank"}
+
 
 # Session Information
 
