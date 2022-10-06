@@ -6,6 +6,7 @@ author:
     affiliation: Tuteja Lab
     affiliation_url: https://www.tutejalab.org
 output:
+  #pdf_document: default
   rmdformats::readthedown:
     self_contained: true
     thumbnails: false
@@ -15,7 +16,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-options(max.print = "75")
+options(max.print = "125")
 knitr::opts_chunk$set(
   echo = TRUE,
   collapse = TRUE,
@@ -505,6 +506,7 @@ g <- ggplot(d, aes(PC1, PC2, color = Group)) +
   xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
   ylab(paste("PC2", round(percentVar[2] * 100, 2), "% variance"))
 ggplotly(g)
+#g
 ```
 
 ## Sample distance for QC
@@ -642,6 +644,7 @@ g <- volcanoPlots2(
   ChartTitle = "Undifferentiated vs. Differentiated"
 )
 ggplotly(g)
+#g
 ```
 ## Heatmap
 
@@ -662,7 +665,7 @@ g <- pheatmap(
       mat2,
       color = heat_colors,
       main = "Top 30 variable small RNA genes",
-      cluster_rows = F,
+      cluster_rows = T,
       cluster_cols  = T,
       show_rownames = T,
       border_color = NA,
@@ -680,6 +683,5 @@ MultiQC report is available at this [link](assets/multiqc_report.html){target="_
 # Session Information
 
 ```{r sessioninfo}
-options(max.print=999999)
 sessionInfo()
 ```
