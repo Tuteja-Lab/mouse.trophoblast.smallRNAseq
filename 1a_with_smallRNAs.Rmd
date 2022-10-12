@@ -411,6 +411,9 @@ library(RColorBrewer)
 library(pheatmap)
 library(genefilter)
 library(ggrepel)
+library(biomaRt)
+library(reshape2)
+library(PupillometryR)
 ```
 
 ## Import counts and sample metadata
@@ -498,14 +501,16 @@ d <- data.frame(
 plot PCA for components 1 and 2
 
 ```{r pcaFull_C1-C2, fig.cap="Figure 4: PCA plot for the first 2 principal components", fig.width=8, fig.height=5}
+#nudge <- position_nudge(y = 0.5)
 g <- ggplot(d, aes(PC1, PC2, color = Group)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
   theme(legend.title = element_blank()) +
   geom_point(size = 2, stroke = 2) +
+  geom_text_repel(aes(label = name)) +
   xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
   ylab(paste("PC2", round(percentVar[2] * 100, 2), "% variance"))
-ggplotly(g)
+g
 #g
 ```
 
@@ -539,23 +544,217 @@ res.UndfvsDiffdata <-
     by = "row.names",
     sort = FALSE
   )
-names(res.UndfvsDiffdata)[1] <- "Gene"
-write_delim(res.UndfvsDiffdata, file = "DESeq2results-UndfvsDiff_fc.tsv", delim = "\t")
-```
- 
 
+```
+
+
+## Creating gene lists
+
+The gene lists have Ensembl gene-ID-version. We need `mirbase_id`,  `gene_biotype` and `external_gene_name` attached to make the results interpretable. 
+So we will download metadata from ensembl using `biomaRt` package.
+
+```{r annotations, warnings=TRUE, message=FALSE}
+ensembl = useMart("ENSEMBL_MART_ENSEMBL")
+ensembl = useDataset("mmusculus_gene_ensembl", mart = ensembl)
+filterType <- "ensembl_gene_id_version"
+filterValues <- rownames(cts)
+attributeNames <- c('ensembl_gene_id_version',
+                    'gene_biotype',
+                    'mirbase_id',
+                    'external_gene_name')
+annot <- getBM(
+  attributes = attributeNames,
+  filters = filterType,
+  values = filterValues,
+  mart = ensembl
+)
+isDup <- duplicated(annot$ensembl_gene_id)
+dup <- annot$ensembl_gene_id[isDup]
+annot <- annot[!annot$ensembl_gene_id %in% dup, ] #this object will be saved and used later
+```
+
+
+
+## Write result tables
+
+Here, we will attach the `mirbase_id`,  `gene_biotype` and `external_gene_name` downloaded in the previous section to the results table. We will also filter the the table to write:
+
+1. DE list that have `padj` less than or equal to 0.05
+2. DE list that have `padj` less than or equal to 0.05, and `log2FoldChange` greater than or equal to fold change of 1.5
+3. DE list that have `padj` less than or equal to 0.05, and `log2FoldChange` less than or equal to fold change of -1.5
+4. Full list of DE table without any filtering.
+
+```{r output, warning=TRUE, message=FALSE}
+names(res.UndfvsDiffdata)[1] <- "ensembl_gene_id_version"
+res.UndfvsDiffdata <- merge(x = res.UndfvsDiffdata, y = annot, by = "ensembl_gene_id_version", all.x = TRUE)
+res.UndfvsDiffdata <- res.UndfvsDiffdata[,c(1,(ncol(res.UndfvsDiffdata)-2):ncol(res.UndfvsDiffdata),2:(ncol(res.UndfvsDiffdata)-3))]
+res.UndfvsDiffSig <- res.UndfvsDiffdata %>%
+  filter(padj <= 0.05)
+fc=1.5
+log2fc=log(fc, base = 2)
+neg.log2fc = log2fc * -1
+res.UndfvsDiffSig.up <- res.UndfvsDiffdata %>%
+  filter(padj <= 0.05 & log2FoldChange >= log2fc)
+res.UndfvsDiffSig.dw <- res.UndfvsDiffdata %>%
+  filter(padj <= 0.05 & log2FoldChange <= neg.log2fc)
+
+write_delim(res.UndfvsDiffdata, file = "DESeq2_results_UndfvsDiff_full-table.tsv", delim = "\t")
+write_delim(res.UndfvsDiffSig, file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05.tsv", delim = "\t")
+write_delim(res.UndfvsDiffSig.up, file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05_fc-ge-1.5.tsv", delim = "\t")
+write_delim(res.UndfvsDiffSig.dw, file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05_fc-le-neg1.5.tsv", delim = "\t")
+```
+
+## Highly expressed genes for conditions
+
+
+```{r expplot1}
+exp <- res.UndfvsDiffdata[,c(1:4,11:ncol(res.UndfvsDiffdata))]
+exp$gene <- paste0(exp$external_gene_name,"(",exp$gene_biotype,")")
+renamed.exp <- exp[,c(13,2,4,5:12)]
+renamed.exp.long <- melt(renamed.exp, id.vars=c('gene', 'gene_biotype', 'external_gene_name' ))
+colnames(renamed.exp.long) <- c('gene', 'gene_biotype', 'external_gene_name', 'replicates', 'norm.expression')
+renamed.exp.long$condition <- "NA"
+renamed.exp.long$condition[which(str_detect(renamed.exp.long$replicates, "Dif_D6"))] <- "Diff"
+renamed.exp.long$condition[which(str_detect(renamed.exp.long$replicates, "Undif_D2"))] <- "Undiff"
+renamed.exp.long <- renamed.exp.long  %>% filter(norm.expression > 0) 
+renamed.exp.long <- na.omit(renamed.exp.long)
+# SOURCE: https://ourcodingclub.github.io/tutorials/dataviz-beautification/
+theme_niwot <- function() {
+  theme_bw() +
+    theme(
+      axis.text = element_text(size = 16),
+      axis.title = element_text(size = 18),
+      axis.line.x = element_line(color = "black"),
+      axis.line.y = element_line(color = "black"),
+      panel.border = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      panel.grid.major.y = element_blank(),
+      plot.margin = unit(c(1, 1, 1, 1), units = , "cm"),
+      plot.title = element_text(
+        size = 18,
+        vjust = 1,
+        hjust = 0
+      ),
+      legend.text = element_text(size = 12),
+      legend.title = element_blank(),
+      legend.position = c(0.95, 0.15),
+      legend.key = element_blank(),
+      legend.background = element_rect(
+        color = "black",
+        fill = "transparent",
+        size = 2,
+        linetype = "blank"
+      )
+    )
+}
+
+```
+
+## Normalized expression plots  {.tabset}
+
+### Replicates
+
+```{r vlnplot1, fig.cap="Figure 6A: Normalized expression of genes in undifferentiated and differentiated samples (replicate)", fig.width=8, fig.height=5}
+A <- ggplot(data = renamed.exp.long,
+       aes(x = replicates, y = norm.expression, fill = condition)) +
+  geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
+                   alpha = 0.8,
+                   trim = FALSE) +
+  geom_point(
+    aes(y = norm.expression, color = condition),
+    position = position_jitter(width = 0.15),
+    size = 1,
+    alpha = 0.5
+  ) +
+  geom_boxplot(width = 0.2,
+               outlier.shape = NA,
+               alpha = 0.8) + stat_summary(
+                 fun = mean,
+                 geom = "point",
+                 shape = 23,
+                 size = 2
+               ) +
+  labs(y = "\nNormalized Expression", x = NULL) +
+  guides(fill = "none", color = "none") +
+  scale_y_log10(label = comma)  +
+  theme_niwot() + theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 1,
+    hjust = 1
+  ))
+A
+```
+
+### Conditions
+```{r vlnplot2, fig.cap="Figure 6B: Normalized expression of genes in undifferentiated and differentiated samples (condition)", fig.width=8, fig.height=5}
+B <- ggplot(data = renamed.exp.long,
+       aes(x = condition, y = norm.expression, fill = condition)) +
+  geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
+                   alpha = 0.8,
+                   trim = FALSE) +
+  geom_point(
+    aes(y = norm.expression, color = condition),
+    position = position_jitter(width = 0.15),
+    size = 1,
+    alpha = 0.5
+  ) +
+  geom_boxplot(width = 0.2,
+               outlier.shape = NA,
+               alpha = 0.8) + stat_summary(
+                 fun = mean,
+                 geom = "point",
+                 shape = 23,
+                 size = 2
+               ) +
+  labs(y = "\nNormalized Expression", x = NULL) +
+  guides(fill = "none", color = "none") +
+  scale_y_log10(label = comma)  +
+  theme_niwot() + theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 1,
+    hjust = 1
+  ))
+B
+```
+
+### Biotypes
+
+```{r vlnplot3, fig.cap="Figure 6C: Normalized expression of genes in undifferentiated and differentiated samples (split based on gene biotype)", fig.width=8, fig.height=5}
+C <- ggplot(data = renamed.exp.long,
+       aes(x = gene_biotype, y = norm.expression, fill = condition)) +
+  geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
+                   alpha = 0.8,
+                   trim = FALSE) +
+  geom_point(
+    aes(y = norm.expression, color = condition),
+    position = position_jitter(width = 0.15),
+    size = 1,
+    alpha = 0.5
+  ) +
+  geom_boxplot(width = 0.2,
+               outlier.shape = NA,
+               alpha = 0.8) + stat_summary(
+                 fun = mean,
+                 geom = "point",
+                 shape = 23,
+                 size = 2
+               ) +
+  labs(y = "\nNormalized Expression", x = NULL) +
+  guides(fill = "none", color = "none") +
+  scale_y_log10(label = comma)  +
+  theme_niwot() + theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 1,
+    hjust = 1
+  ))
+C
+```
+
+## new section
 
 ## Volcano plots
-
-```{r martdata}
-mart <-
-  read.csv(
-    "assets/mart_export.txt",
-    sep = "\t",
-    stringsAsFactors = TRUE,
-    header = TRUE
-  ) #this object was obtained from Ensembl as we illustrated in "Creating gene lists"
-```
 
 
 ```{r volcano2}
@@ -574,35 +773,39 @@ volcanoPlots2 <-
     names(res.se)[1] <- "Gene"
     res.data <-
       merge(res.se,
-            mart,
+            annot,
             by.x = "Gene",
-            by.y = "geneid.version")
+            by.y = "ensembl_gene_id_version")
     res.data <- res.data %>% mutate_all(na_if, "")
     res.data <- res.data %>% mutate_all(na_if, " ")
     res.data <-
-      res.data %>% mutate(gene_symbol = coalesce(gene.symbol, Gene))
+      res.data %>% mutate(gene_symbol = coalesce(external_gene_name, Gene))
+    fc=1.5
+log2fc=log(fc, base = 2)
+neg.log2fc = log2fc * -1
+
     res.data$diffexpressed <- "other.genes"
-    res.data$diffexpressed[res.data$log2FoldChange >= 1 &
+    res.data$diffexpressed[res.data$log2FoldChange >= log2fc &
                              res.data$padj <= 0.05] <-
       paste("Higher expression in", first)
-    res.data$diffexpressed[res.data$log2FoldChange <= -1 &
+    res.data$diffexpressed[res.data$log2FoldChange <= neg.log2fc &
                              res.data$padj <= 0.05] <-
       paste("Higher expression in", second)
     res.data$delabel <- ""
-    res.data$delabel[res.data$log2FoldChange >= 1
+    res.data$delabel[res.data$log2FoldChange >= log2fc
                      & res.data$padj <= 0.05
                      &
                        !is.na(res.data$padj)] <-
-      res.data$gene_symbol[res.data$log2FoldChange >= 1
+      res.data$gene_symbol[res.data$log2FoldChange >= log2fc
                            &
                              res.data$padj <= 0.05
                            &
                              !is.na(res.data$padj)]
-    res.data$delabel[res.data$log2FoldChange <= -1
+    res.data$delabel[res.data$log2FoldChange <= neg.log2fc
                      & res.data$padj <= 0.05
                      &
                        !is.na(res.data$padj)] <-
-      res.data$gene_symbol[res.data$log2FoldChange <= -1
+      res.data$gene_symbol[res.data$log2FoldChange <= neg.log2fc
                            &
                              res.data$padj <= 0.05
                            &
@@ -638,8 +841,8 @@ g <- volcanoPlots2(
   "UndfvsDiff",
   "Undf",
   "Diff",
-  "green",
-  "blue",
+  "tomato",
+  "lightseagreen",
   "grey",
   ChartTitle = "Undifferentiated vs. Differentiated"
 )
@@ -655,25 +858,26 @@ topVarGenes <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 30)
 mat  <- assay(vsd)[ topVarGenes, ]
 mat  <- mat - rowMeans(mat)
 mat2 <-    merge(mat,
-          mart,
+          annot,
           by.x = 'row.names',
-          by.y = "geneid.version")
-rownames(mat2) <- mat2[,10]
+          by.y = "ensembl_gene_id_version")
+mat2$gene <- paste0(mat2$external_gene_name," (",mat2$gene_biotype,")")
+rownames(mat2) <- mat2[,'gene']
 mat2 <- mat2[2:9]
 heat_colors <- brewer.pal(9, "YlOrRd")
 g <- pheatmap(
-      mat2,
-      color = heat_colors,
-      main = "Top 30 variable small RNA genes",
-      cluster_rows = T,
-      cluster_cols  = T,
-      show_rownames = T,
-      border_color = NA,
-      fontsize = 10,
-      scale = "row",
-      fontsize_row = 10
-    )
-    g
+  mat2,
+  color = heat_colors,
+  main = "Top 30 variable small RNA genes",
+  cluster_rows = T,
+  cluster_cols  = T,
+  show_rownames = T,
+  border_color = NA,
+  fontsize = 10,
+  scale = "row",
+  fontsize_row = 10
+)
+g
 ```
 ## MultiQC report:
 
