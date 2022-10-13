@@ -286,13 +286,23 @@ ggplot(subread.long, aes(x = Assignments, y = Count, fill = Assignments)) +
   geom_bar(stat = 'identity') +
   labs(x = "Subread assingments", y = "reads") + theme_minimal() +
   scale_y_continuous(labels = label_comma()) +
+  scale_fill_manual(
+    values = c(
+      "N_input"        = "#577b92",
+      "N_unmapped"     = "#021927",
+      "N_multimapping" = "#007caa",
+      "N_unique"       = "#1a3c54",
+      "N_ambiguous"    = "#3a5b63",
+      "N_noFeature"    = "#33526c"
+    )
+  ) +
   theme(
     axis.text.x = element_text(
       angle = 45,
       vjust = 1,
       hjust = 1,
       size = 12
-      ),
+    ),
     strip.text = element_text(
       face = "bold",
       color = "gray35",
@@ -310,6 +320,14 @@ g <- ggplot(counts.long, aes(x = Group, y = Count, fill = Group)) +
   geom_bar(stat = 'sum') +
   labs(x = "biotype", y = "read counts") + theme_minimal() +
   scale_y_continuous(labels = label_comma()) +
+  scale_fill_manual(values = c(
+      "coding_genes"         = "#92b5b7",
+      "non_conding_RNA"      = "#be4f54",
+      "long_non_conding_RNA" = "#eca87a",
+      "pseudogenes"          = "#784440",
+      "unconfirmed_genes"    = "#eba3a4",
+      "Ig_genes"             = "#8a3a1b"
+    ))  +
   theme(
     axis.text.x = element_text(
       angle = 45,
@@ -327,7 +345,6 @@ g <- ggplot(counts.long, aes(x = Group, y = Count, fill = Group)) +
     legend.position = "none"
   ) +
   facet_wrap("Sample", scales = "free_y", ncol = 4)
-#ggplotly(g)
 g
 ```
 
@@ -352,10 +369,25 @@ counts.nc$GeneType <-
     )
   )
 
-g <- ggplot(counts.nc, aes(x = GeneType, y = Count, fill = GeneType)) +
+g <-
+  ggplot(counts.nc, aes(x = GeneType, y = Count, fill = GeneType)) +
   geom_bar(stat = 'sum') +
   labs(x = "biotype", y = "read counts") + theme_minimal() +
   scale_y_continuous(labels = label_comma()) +
+  scale_fill_manual(
+    values = c(
+      'miRNA' 		= '#54693e',
+      'misc_RNA' 	= '#9c47cb',
+      'snRNA'		= '#94d14f',
+      'snoRNA' 		= '#5c4f9c',
+      'scaRNA' 		= '#cca758',
+      'sRNA' 		= '#c85a90',
+      'Mt_tRNA' 	= '#80d0a8',
+      'Mt_rRNA' 	= '#c4533b',
+      'rRNA' 		= '#9ea5c0',
+      'ribozyme' 	= '#51333c'
+    )
+  ) +
   theme(
     axis.text.x = element_text(
       angle = 45,
@@ -505,6 +537,8 @@ plot PCA for components 1 and 2
 #nudge <- position_nudge(y = 0.5)
 g <- ggplot(d, aes(PC1, PC2, color = Group)) +
   scale_shape_manual(values = 1:8) +
+  scale_color_manual(values = c('Diff' 		= '#c6007b',
+                                'Undf' 	= '#a0b600')) +
   theme_bw() +
   theme(legend.title = element_blank()) +
   geom_point(size = 2, stroke = 2) +
@@ -572,438 +606,6 @@ annot <- getBM(
 isDup <- duplicated(annot$ensembl_gene_id)
 dup <- annot$ensembl_gene_id[isDup]
 annot <- annot[!annot$ensembl_gene_id %in% dup, ] #this object will be saved and used later
-```
-
-
-
-## Write result tables
-
-Here, we will attach the `mirbase_id`,  `gene_biotype` and `external_gene_name` downloaded in the previous section to the results table. We will also filter the the table to write:
-
-1. DE list that have `padj` less than or equal to 0.05
-2. DE list that have `padj` less than or equal to 0.05, and `log2FoldChange` greater than or equal to fold change of 1.5
-3. DE list that have `padj` less than or equal to 0.05, and `log2FoldChange` less than or equal to fold change of -1.5
-4. Full list of DE table without any filtering.
-
-```{r output, warning=TRUE, message=FALSE}
-names(res.UndfvsDiffdata)[1] <- "ensembl_gene_id_version"
-res.UndfvsDiffdata <-
-  merge(x = res.UndfvsDiffdata,
-        y = annot,
-        by = "ensembl_gene_id_version",
-        all.x = TRUE)
-res.UndfvsDiffdata <-
-  res.UndfvsDiffdata[, c(1, (ncol(res.UndfvsDiffdata) - 2):ncol(res.UndfvsDiffdata), 2:(ncol(res.UndfvsDiffdata) -
-                                                                                          3))]
-res.UndfvsDiffSig <- res.UndfvsDiffdata %>%
-  filter(padj <= 0.05)
-fc = 1.5
-log2fc = log(fc, base = 2)
-neg.log2fc = log2fc * -1
-res.UndfvsDiffSig.up <- res.UndfvsDiffdata %>%
-  filter(padj <= 0.05 & log2FoldChange >= log2fc)
-res.UndfvsDiffSig.dw <- res.UndfvsDiffdata %>%
-  filter(padj <= 0.05 & log2FoldChange <= neg.log2fc)
-
-write_delim(res.UndfvsDiffdata, file = "DESeq2_results_UndfvsDiff_full-table.tsv", delim = "\t")
-write_delim(res.UndfvsDiffSig, file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05.tsv", delim = "\t")
-write_delim(res.UndfvsDiffSig.up, file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05_fc-ge-1.5.tsv", delim = "\t")
-write_delim(res.UndfvsDiffSig.dw, file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05_fc-le-neg1.5.tsv", delim = "\t")
-```
-
-## Highly expressed genes for conditions
-
-
-```{r expplot1, warnings=TRUE, message=FALSE}
-exp <- res.UndfvsDiffdata[, c(1:4, 11:ncol(res.UndfvsDiffdata))]
-exp$external_gene_name <-
-  ifelse(exp$external_gene_name == "",
-         exp$ensembl_gene_id_version,
-         exp$external_gene_name)
-exp$gene <- paste0(exp$external_gene_name, "(", exp$gene_biotype, ")")
-renamed.exp <- exp[, c(13, 1:12)]
-renamed.exp.long <-
-  melt(
-    renamed.exp,
-    id.vars = c(
-      'gene',
-      'ensembl_gene_id_version',
-      'gene_biotype',
-      'mirbase_id',
-      'external_gene_name'
-    )
-  )
-colnames(renamed.exp.long) <-
-  c('gene',
-    'ensembl_gene_id_version',
-    'gene_biotype',
-    'mirbase_id',
-    'external_gene_name',
-    'replicates',
-    'norm.expression'
-  )
-renamed.exp.long$condition <- "NA"
-renamed.exp.long$condition[which(str_detect(renamed.exp.long$replicates, "Dif_D6"))] <-
-  "Diff"
-renamed.exp.long$condition[which(str_detect(renamed.exp.long$replicates, "Undif_D2"))] <-
-  "Undiff"
-renamed.exp.long <-
-  renamed.exp.long  %>% filter(norm.expression > 0)
-renamed.exp.long <- na.omit(renamed.exp.long)
-# SOURCE: https://ourcodingclub.github.io/tutorials/dataviz-beautification/
-theme_niwot <- function() {
-  theme_bw() +
-    theme(
-      axis.text = element_text(size = 10),
-      axis.title = element_text(size = 12),
-      axis.line.x = element_line(color = "black"),
-      axis.line.y = element_line(color = "black"),
-      panel.border = element_blank(),
-      panel.grid.major.x = element_blank(),
-      panel.grid.minor.x = element_blank(),
-      panel.grid.minor.y = element_blank(),
-      panel.grid.major.y = element_blank(),
-      plot.margin = unit(c(1, 1, 1, 1), units = , "cm"),
-      plot.title = element_text(
-        size = 8,
-        vjust = 1,
-        hjust = 0
-      ),
-      legend.text = element_text(size = 8),
-      legend.title = element_blank(),
-      legend.position = c(0.95, 0.15),
-      legend.key = element_blank(),
-      legend.background = element_rect(
-        color = "black",
-        fill = "transparent",
-        size = 2,
-        linetype = "blank"
-      )
-    )
-}
-
-
-```
-
-## Normalized expression plots  
-
-```{r vln1, warnings=TRUE, message=FALSE}
-A <- ggplot(data = renamed.exp.long,
-       aes(x = replicates, y = norm.expression, fill = condition)) +
-  geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
-                   alpha = 0.8,
-                   trim = FALSE) +
-  geom_point(
-    aes(y = norm.expression, color = condition),
-    position = position_jitter(width = 0.15),
-    size = 1,
-    alpha = 0.5
-  ) +
-  geom_boxplot(width = 0.2,
-               outlier.shape = NA,
-               alpha = 0.8) + stat_summary(
-                 fun = mean,
-                 geom = "point",
-                 shape = 23,
-                 size = 2
-               ) +
-  labs(y = "\nNormalized Expression", x = NULL) +
-  guides(fill = "none", color = "none") +
-  scale_y_log10(label = comma)  +
-  theme_niwot() + theme(axis.text.x = element_text(
-    angle = 45,
-    vjust = 1,
-    hjust = 1
-  ))
-```
-
-```{r vln2, warnings=TRUE, message=FALSE}
-B <- ggplot(data = renamed.exp.long,
-       aes(x = condition, y = norm.expression, fill = condition)) +
-  geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
-                   alpha = 0.8,
-                   trim = FALSE) +
-  geom_point(
-    aes(y = norm.expression, color = condition),
-    position = position_jitter(width = 0.15),
-    size = 1,
-    alpha = 0.5
-  ) +
-  geom_boxplot(width = 0.2,
-               outlier.shape = NA,
-               alpha = 0.8) + stat_summary(
-                 fun = mean,
-                 geom = "point",
-                 shape = 23,
-                 size = 2
-               ) +
-  labs(y = "\nNormalized Expression", x = NULL) +
-  guides(fill = "none", color = "none") +
-  scale_y_log10(label = comma)  +
-  theme_niwot() + theme(axis.text.x = element_text(
-    angle = 45,
-    vjust = 1,
-    hjust = 1
-  ))
-```
-
-```{r vln3, warnings=TRUE, message=FALSE}
-C <- ggplot(data = renamed.exp.long,
-       aes(x = gene_biotype, y = norm.expression, fill = condition)) +
-  geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
-                   alpha = 0.8,
-                   trim = FALSE) +
-  geom_point(
-    aes(y = norm.expression, color = condition),
-    position = position_jitter(width = 0.15),
-    size = 1,
-    alpha = 0.5
-  ) +
-  geom_boxplot(width = 0.2,
-               outlier.shape = NA,
-               alpha = 0.8) + stat_summary(
-                 fun = mean,
-                 geom = "point",
-                 shape = 23,
-                 size = 2
-               ) +
-  labs(y = "\nNormalized Expression", x = NULL) +
-  guides(fill = "none", color = "none") +
-  scale_y_log10(label = comma)  +
-  theme_niwot() + theme(axis.text.x = element_text(
-    angle = 45,
-    vjust = 1,
-    hjust = 1
-  ))
-```
-
-## Expression plots {.tabset}
-
-### Replicates
-
-```{r vlnplot1, fig.cap="Figure 6A: Normalized expression of genes in undifferentiated and differentiated samples (replicate)", fig.width=8, fig.height=5}
-A
-```
-
-### Conditions
-```{r vlnplot2, fig.cap="Figure 6B: Normalized expression of genes in undifferentiated and differentiated samples (condition)", fig.width=8, fig.height=5}
-B
-```
-
-### Biotypes
-
-```{r vlnplot3, fig.cap="Figure 6C: Normalized expression of genes in undifferentiated and differentiated samples (split based on gene biotype)", fig.width=8, fig.height=5}
-C
-```
-
-## Highly expressed small RNAs
-
-```{r quartiles1, warnings=TRUE, message=FALSE}
-renamed.exp.means <- 
-  renamed.exp %>% rowwise() %>% mutate(Diff = mean(c(
-  Dif_D6_1_S4, Dif_D6_2_S3, Dif_D6_3_S2, Dif_D6_4_S1
-)))
-renamed.exp.means <-
-  renamed.exp.means %>% rowwise() %>% mutate(Undiff = mean(c(
-    Undif_D2_1_S8, Undif_D2_2_S7, Undif_D2_3_S6, Undif_D2_4_S5
-  )))
-df.diff <-
-  renamed.exp.means %>%
-  dplyr::select(gene:external_gene_name, Diff) %>% 
-  dplyr::filter(Diff > 0)
-df.undiff <-
-  renamed.exp.means %>%
-  dplyr::select(gene:external_gene_name, Undiff) %>%
-  dplyr::filter(Undiff > 0)
-
-df.diff$quart <- ntile(df.diff$Diff, 4)
-df.diff$decile <- ntile(df.diff$Diff, 10)
-df.undiff$quart <- ntile(df.undiff$Undiff, 4)
-df.undiff$decile <- ntile(df.undiff$Undiff, 10)
-undiff.75pc <-
-  df.undiff %>%
-  dplyr::filter(quart == 4) %>%
-  dplyr::select(ensembl_gene_id_version)
-undiff.90pc <-
-  df.undiff %>%
-  dplyr::filter(decile == 10) %>%
-  dplyr::select(ensembl_gene_id_version)
-diff.75pc <-
-  df.diff %>%
-  dplyr::filter(quart == 4) %>%
-  dplyr::select(ensembl_gene_id_version)
-diff.90pc <-
-  df.diff %>%
-  dplyr::filter(decile == 10) %>%
-  dplyr::select(ensembl_gene_id_version)
-
-data.A <- diff.90pc %>% column_to_rownames(var="ensembl_gene_id_version")
-data.A$diff.90pc = 1
-data.B <- undiff.90pc %>% column_to_rownames(var="ensembl_gene_id_version")
-data.B$undiff.90pc = 1
-decile.data <- merge(data.A, data.B, by=0, all.x=TRUE, all.y=TRUE)
-decile.data[is.na(decile.data)] <- 0
-decile.data <-
-  merge(x = decile.data,
-        y = annot,
-        by.x = "Row.names",
-        by.y = "ensembl_gene_id_version",
-        all.x = TRUE)
-decile.data <- decile.data %>% dplyr::select(Row.names:gene_biotype)
-decile.data <- decile.data %>% column_to_rownames(var="Row.names")
-
-data.A <- diff.75pc %>% column_to_rownames(var="ensembl_gene_id_version")
-data.A$diff.75pc = 1
-data.B <- undiff.75pc %>% column_to_rownames(var="ensembl_gene_id_version")
-data.B$undiff.75pc = 1
-quartile.data <- merge(data.A, data.B, by=0, all.x=TRUE, all.y=TRUE)
-quartile.data[is.na(quartile.data)] <- 0
-quartile.data <-
-  merge(x = quartile.data,
-        y = annot,
-        by.x = "Row.names",
-        by.y = "ensembl_gene_id_version",
-        all.x = TRUE)
-quartile.data <- quartile.data %>% dplyr::select(Row.names:gene_biotype)
-quartile.data <- quartile.data %>% column_to_rownames(var="Row.names")
-inter <- colnames(decile.data)[1:2]
-decile.plot <- upset(
-  decile.data,
-  inter,
-  annotations = list(
-    'gene_biotype' = (
-      ggplot(mapping = aes(fill = gene_biotype))
-      + geom_bar(stat = 'count', position = 'fill')
-      + scale_y_continuous(labels = scales::percent_format())
-      + scale_fill_manual(
-        values = c(
-          'miRNA' = '#8142c8',
-          'misc_RNA' = '#f62189',
-          'snRNA' = '#008cd4',
-          'snoRNA' = '#7c4515',
-          'scaRNA' = '#e9a3ff',
-          'sRNA' = '#e7c08b'
-        )
-      )
-      + ylab('smallRNA proportion')
-    )
-  ),
-      queries=list(
-        upset_query(
-            intersect=c('diff.90pc', 'undiff.90pc'),
-            color='orange',
-            fill='orange',
-            only_components=c('intersections_matrix', 'Intersection size')
-        ),
-        upset_query(
-            intersect='diff.90pc',
-            color='tomato',
-            fill='tomato',
-            only_components=c('intersections_matrix', 'Intersection size')
-        ),
-        upset_query(
-            intersect='undiff.90pc',
-            color='lightseagreen',
-            fill='lightseagreen',
-            only_components=c('intersections_matrix', 'Intersection size')
-        )
-    ),
-  width_ratio = 0.3,
-  set_sizes = (
-    upset_set_size(geom = geom_bar(aes(
-      fill = gene_biotype, x = group
-    ),
-    width = 0.8),
-    position = 'right') + theme(legend.position = "none") +
-      scale_fill_manual(
-        values = c(
-          'miRNA' = '#8142c8',
-          'misc_RNA' = '#f62189',
-          'snRNA' = '#008cd4',
-          'snoRNA' = '#7c4515',
-          'scaRNA' = '#e9a3ff',
-          'sRNA' = '#e7c08b'
-        )
-      )
-  ),
-  guides = 'over'
-)
-inter <- colnames(quartile.data)[1:2]
-quartile.plot <- upset(
-  quartile.data,
-  inter,
-  annotations = list(
-    'gene_biotype' = (
-      ggplot(mapping = aes(fill = gene_biotype))
-      + geom_bar(stat = 'count', position = 'fill')
-      + scale_y_continuous(labels = scales::percent_format())
-      + scale_fill_manual(
-        values = c(
-          'miRNA' = '#8142c8',
-          'misc_RNA' = '#f62189',
-          'snRNA' = '#008cd4',
-          'snoRNA' = '#7c4515',
-          'scaRNA' = '#e9a3ff',
-          'sRNA' = '#e7c08b'
-        )
-      )
-      + ylab('smallRNA proportion')
-    )
-  ),
-      queries=list(
-        upset_query(
-            intersect=c('diff.75pc', 'undiff.75pc'),
-            color='orange',
-            fill='orange',
-            only_components=c('intersections_matrix', 'Intersection size')
-        ),
-        upset_query(
-            intersect='diff.75pc',
-            color='tomato',
-            fill='tomato',
-            only_components=c('intersections_matrix', 'Intersection size')
-        ),
-        upset_query(
-            intersect='undiff.75pc',
-            color='lightseagreen',
-            fill='lightseagreen',
-            only_components=c('intersections_matrix', 'Intersection size')
-        )
-    ),
-  width_ratio = 0.3,
-  set_sizes = (
-    upset_set_size(geom = geom_bar(aes(
-      fill = gene_biotype, x = group
-    ),
-    width = 0.8),
-    position = 'right') + theme(legend.position = "none") +
-      scale_fill_manual(
-        values = c(
-          'miRNA' = '#8142c8',
-          'misc_RNA' = '#f62189',
-          'snRNA' = '#008cd4',
-          'snoRNA' = '#7c4515',
-          'scaRNA' = '#e9a3ff',
-          'sRNA' = '#e7c08b'
-        )
-      )
-  ),
-  guides = 'over'
-)
-
-```
-
-## Intersection plots {.tabset}
-
-### quartile
-
-```{r upset1, fig.cap="Figure 7A: Gene expression greater than 75th percentile (intersection)", fig.width=10, fig.height=5}
-quartile.plot
-```
-### decile
-
-```{r upset2, fig.cap="Figure 7B: Gene expression greater than 90th percentile (intersection)", fig.width=10, fig.height=5}
-decile.plot
 ```
 
 ## Volcano plots
@@ -1093,14 +695,14 @@ g <- volcanoPlots2(
   "UndfvsDiff",
   "Undf",
   "Diff",
-  "tomato",
-  "lightseagreen",
+  "#c6007b",
+  "#a0b600",
   "grey",
   ChartTitle = "Undifferentiated vs. Differentiated"
 )
 ggplotly(g)
-#g
 ```
+
 ## Heatmap
 
 Heatmap for the top 30 variable genes:
@@ -1131,7 +733,368 @@ g <- pheatmap(
 )
 g
 ```
-## MultiQC report:
+
+## Write result tables
+
+Here, we will attach the `mirbase_id`,  `gene_biotype` and `external_gene_name` downloaded in the previous section to the results table. We will also filter the the table to write:
+
+1. DE list that have `padj` less than or equal to `0.05`
+2. DE list that have `padj` less than or equal to `0.05`, and `log2FoldChange` greater than or equal to fold change of `1.5`
+3. DE list that have `padj` less than or equal to `0.05`, and `log2FoldChange` less than or equal to fold change of `-1.5`
+4. Full list of DE table without any filtering.
+
+```{r output, warning=TRUE, message=FALSE}
+names(res.UndfvsDiffdata)[1] <- "ensembl_gene_id_version"
+res.UndfvsDiffdata <-
+  merge(x = res.UndfvsDiffdata,
+        y = annot,
+        by = "ensembl_gene_id_version",
+        all.x = TRUE)
+res.UndfvsDiffdata <-
+  res.UndfvsDiffdata[, c(1, (ncol(res.UndfvsDiffdata) - 2):ncol(res.UndfvsDiffdata), 2:(ncol(res.UndfvsDiffdata) -
+                                                                                         3))]
+res.UndfvsDiffSig <- res.UndfvsDiffdata %>%
+  filter(padj <= 0.05)
+fc = 1.5
+log2fc = log(fc, base = 2)
+neg.log2fc = log2fc * -1
+res.UndfvsDiffSig.up <- res.UndfvsDiffdata %>%
+  filter(padj <= 0.05 & log2FoldChange >= log2fc)
+res.UndfvsDiffSig.dw <- res.UndfvsDiffdata %>%
+  filter(padj <= 0.05 & log2FoldChange <= neg.log2fc)
+
+write_delim(res.UndfvsDiffdata, 
+            file = "DESeq2_results_UndfvsDiff_full-table.tsv", 
+            delim = "\t")
+write_delim(res.UndfvsDiffSig, 
+            file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05.tsv", 
+            delim = "\t")
+write_delim(res.UndfvsDiffSig.up, 
+            file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05_fc-ge-1.5.tsv", 
+            delim = "\t")
+write_delim(res.UndfvsDiffSig.dw, 
+            file = "DESeq2_results_UndfvsDiff_adj.p-le-0.05_fc-le-neg1.5.tsv", 
+            delim = "\t")
+```
+
+# Characterizing smallRNA expression
+
+To check the expression of genes in each condition, we looked at the highly expressed genes and their composition. The analyses is shown below.
+
+```{r expplot1, warnings=TRUE, message=FALSE}
+exp <- res.UndfvsDiffdata[, c(1:4, 11:ncol(res.UndfvsDiffdata))]
+exp$external_gene_name <-
+  ifelse(exp$external_gene_name == "",
+         exp$ensembl_gene_id_version,
+         exp$external_gene_name)
+exp$gene <- paste0(exp$external_gene_name, "(", exp$gene_biotype, ")")
+renamed.exp <- exp[, c(13, 1:12)]
+renamed.exp.long <-
+  melt(
+    renamed.exp,
+    id.vars = c(
+      'gene',
+      'ensembl_gene_id_version',
+      'gene_biotype',
+      'mirbase_id',
+      'external_gene_name'
+    )
+  )
+colnames(renamed.exp.long) <-
+  c('gene',
+    'ensembl_gene_id_version',
+    'gene_biotype',
+    'mirbase_id',
+    'external_gene_name',
+    'replicates',
+    'norm.expression'
+  )
+renamed.exp.long$condition <- "NA"
+renamed.exp.long$condition[which(str_detect(renamed.exp.long$replicates, "Dif_D6"))] <-
+  "Diff"
+renamed.exp.long$condition[which(str_detect(renamed.exp.long$replicates, "Undif_D2"))] <-
+  "Undiff"
+renamed.exp.long <-
+  renamed.exp.long  %>% filter(norm.expression > 0)
+renamed.exp.long <- na.omit(renamed.exp.long)
+# SOURCE: https://ourcodingclub.github.io/tutorials/dataviz-beautification/
+theme_niwot <- function() {
+  theme_bw() +
+    theme(
+      axis.text = element_text(size = 12),
+      axis.title = element_text(size = 12),
+      axis.line.x = element_line(color = "black"),
+      axis.line.y = element_line(color = "black"),
+      panel.border = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      panel.grid.major.y = element_blank(),
+      plot.margin = unit(c(1, 1, 1, 1), units = , "cm"),
+      plot.title = element_text(
+        size = 12,
+        vjust = 1,
+        hjust = 0
+      ),
+      legend.text = element_text(size = 12),
+      legend.title = element_blank(),
+      legend.position = c(0.95, 0.15),
+      legend.key = element_blank(),
+      legend.background = element_rect(
+        color = "black",
+        fill = "transparent",
+        size = 2,
+        linetype = "blank"
+      )
+    )
+}
+
+
+```
+
+## Normalized expression plots  
+
+```{r vln1, warnings=TRUE, message=FALSE}
+vlnPlot <-
+  function(dataIn = renamed.exp.long,
+           xcol = "replicates",
+           fillcol = "condition",
+           expre = "norm.expression") {
+    p <- ggplot(data = dataIn,
+                aes_string(x = xcol, y = expre, fill = fillcol)) +
+      geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
+                       alpha = 0.6,
+                       trim = FALSE) +
+      geom_point(
+        aes_string(y = expre, color = fillcol),
+        position = position_jitter(width = 0.15),
+        size = 1,
+        alpha = 0.5
+      ) +
+      geom_boxplot(width = 0.2,
+                   outlier.shape = NA,
+                   alpha = 0.8) + stat_summary(
+                     fun = mean,
+                     geom = "point",
+                     shape = 23,
+                     size = 2
+                   ) +
+      labs(y = "Normalized Expression", x = NULL) +
+      guides(fill = "none", color = "none") +
+      scale_y_log10(label = comma) +
+      scale_fill_manual(values = c('Diff' 		= '#c6007b',
+                                   'Undiff' 	= '#a0b600')) +
+      scale_color_manual(values = c('Diff' 		= '#c6007b',
+                                   'Undiff' 	= '#a0b600')) +
+      theme_niwot() + theme(axis.text.x = element_text(
+        angle = 45,
+        vjust = 1,
+        hjust = 1
+      ))
+    p
+  }
+```
+
+
+
+## Expression plots {.tabset}
+
+### Replicates
+
+```{r vlnplot1, fig.cap="Figure 8A: Normalized expression of genes in undifferentiated and differentiated samples (replicate)", fig.width=8, fig.height=5}
+vlnPlot(xcol="replicates")
+```
+
+### Conditions
+```{r vlnplot2, fig.cap="Figure 8B: Normalized expression of genes in undifferentiated and differentiated samples (condition)", fig.width=8, fig.height=5}
+vlnPlot(xcol="condition")
+```
+
+### Biotypes
+
+```{r vlnplot3, fig.cap="Figure 8C: Normalized expression of genes in undifferentiated and differentiated samples (split based on gene biotype)", fig.width=8, fig.height=5}
+vlnPlot(xcol="gene_biotype")
+```
+
+## Highly expressed small RNAs
+
+```{r quartiles1, warnings=TRUE, message=FALSE}
+df.diff <- renamed.exp %>%
+  rowwise() %>%
+  mutate(Diff = mean(c(
+    Dif_D6_1_S4, Dif_D6_2_S3, Dif_D6_3_S2, Dif_D6_4_S1
+  ))) %>%
+  dplyr::select(gene:external_gene_name, Diff) %>%
+  dplyr::filter(Diff > 0)  %>%
+  ungroup() %>%
+  mutate(quart = ntile(Diff, 4)) %>%
+  mutate(decile = ntile(Diff, 10))
+df.undiff <-  renamed.exp %>%
+  rowwise() %>%
+  mutate(Undiff = mean(c(
+    Undif_D2_1_S8, Undif_D2_2_S7, Undif_D2_3_S6, Undif_D2_4_S5
+  ))) %>%
+  dplyr::select(gene:external_gene_name, Undiff) %>%
+  dplyr::filter(Undiff > 0) %>%
+  ungroup() %>%
+  mutate(quart = ntile(Undiff, 4)) %>%
+  mutate(decile = ntile(Undiff, 10))
+filterCuts <- function(dataIn = df.undiff,
+                       cutOff = 4,
+                       type = decile) {
+  type <- enquo(type)
+  dataIn %>%
+    dplyr::filter(!!type == cutOff) %>%
+    dplyr::select(ensembl_gene_id_version)
+}
+undiff.75pc <- filterCuts(df.undiff, 4, type = quart)
+diff.75pc <- filterCuts(df.diff, 4, type = quart)
+undiff.90pc <- filterCuts(df.undiff, 10, type = decile)
+diff.90pc <- filterCuts(df.diff, 10, type = decile)
+
+dataSlice <- function(dataA = diff.75pc, dataB = undiff.75pc) {
+  partA <- dataA %>% column_to_rownames(var = "ensembl_gene_id_version")
+  partA$colA = 1
+  partB <-
+    dataB %>% column_to_rownames(var = "ensembl_gene_id_version")
+  partB$colB = 1
+  partAB <- merge(partA,
+                  partB,
+                  by = 0,
+                  all.x = TRUE,
+                  all.y = TRUE)
+  partAB[is.na(partAB)] <- 0
+  partAB <-
+    merge(
+      x = partAB,
+      y = annot,
+      by.x = "Row.names",
+      by.y = "ensembl_gene_id_version",
+      all.x = TRUE
+    )
+  partAB <- partAB %>% dplyr::select(Row.names:gene_biotype)
+  partAB <- partAB %>% column_to_rownames(var = "Row.names")
+  return(partAB)
+}
+quartile.data <- dataSlice(diff.75pc, undiff.75pc)
+colnames(quartile.data) <-
+  c("diff.75pc", "undiff.75pc", "gene_biotype")
+decile.data <- dataSlice(diff.90pc, undiff.90pc)
+colnames(decile.data) <-
+  c("diff.90pc", "undiff.90pc", "gene_biotype")
+plotUpSet <- function(fulltable = decile.data) {
+  inter <- colnames(fulltable)[1:2]
+  p <- upset(
+    fulltable,
+    inter,
+    annotations = list(
+      'smallRNA type' = (
+        ggplot(mapping = aes(fill = gene_biotype)) +
+          geom_bar(stat = 'count', position = 'fill') +
+          scale_y_continuous(labels = scales::percent_format()) +
+          scale_fill_manual(
+            values = c(
+              'miRNA' 		= '#54693e',
+              'misc_RNA' 	= '#9c47cb',
+              'snRNA'		= '#94d14f',
+              'snoRNA' 		= '#5c4f9c',
+              'scaRNA' 		= '#cca758',
+              'sRNA' 		= '#c85a90'
+            )
+          )
+        + ylab('smallRNA proportion')
+      )
+    ),
+    queries = list(
+      upset_query(
+        intersect = inter,
+        color = '#99a1a4',
+        fill = '#99a1a4',
+        only_components = c('intersections_matrix', 'Intersection size')
+      ),
+      upset_query(
+        intersect = inter[1],
+        color = '#c6007b',
+        fill = '#c6007b',
+        only_components = c('intersections_matrix', 'Intersection size')
+      ),
+      upset_query(
+        intersect = inter[2],
+        color = '#a0b600',
+        fill = '#a0b600',
+        only_components = c('intersections_matrix', 'Intersection size')
+      )
+    ),
+    width_ratio = 0.4,
+    set_sizes = (
+      upset_set_size(geom = geom_bar(
+        aes(fill = gene_biotype, x = group),
+        width = 0.8
+      ),
+      position = 'right') + theme(legend.position = "none") +
+        scale_fill_manual(
+          values = c(
+            'miRNA' 		= '#54693e',
+            'misc_RNA' 	= '#9c47cb',
+            'snRNA'		= '#94d14f',
+            'snoRNA' 		= '#5c4f9c',
+            'scaRNA' 		= '#cca758',
+            'sRNA' 		= '#c85a90'
+          )
+        )
+    ),
+    guides = 'over'
+  )
+  p
+}
+```
+
+## Intersection plots {.tabset}
+
+### quartile
+
+```{r upset1, fig.cap="Figure 9A: Gene expression greater than 75th percentile (intersection)", fig.width=10, fig.height=8}
+plotUpSet(quartile.data)
+```
+### decile
+
+```{r upset2, fig.cap="Figure 9B: Gene expression greater than 90th percentile (intersection)", fig.width=10, fig.height=8}
+plotUpSet(decile.data)
+```
+
+## Save intersection results
+
+```{r quartout, warnings=TRUE, message=FALSE}
+filterUpsetRes <-
+  function(datatable, title = "title") {
+    data.annot <-
+      merge(datatable[1:2],
+            annot,
+            by.x = 0,
+            by.y = "ensembl_gene_id_version",
+            all.x = TRUE)
+    mirna.annot <- data.annot %>%
+      dplyr::filter(.[[2]] == 1 & .[[3]] == 1) %>%
+      dplyr::filter(gene_biotype == "miRNA")
+    snrna.annot <- data.annot %>%
+      dplyr::filter(.[[2]] == 1 & .[[3]] == 1) 
+    write_delim(
+      mirna.annot,
+      file = paste0("intersection_miRNA_", title , ".tsv"),
+      delim = "\t"
+    )
+    write_delim(
+      snrna.annot,
+      file = paste0("intersection_smallRNA_", title , ".tsv"),
+      delim = "\t"
+    )
+  }
+filterUpsetRes(quartile.data, title = "quartile")
+filterUpsetRes(decile.data, title = "decile")
+```
+
+
+# MultiQC report:
 
 MultiQC report is available at this [link](assets/multiqc_report.html){target="_blank"}
 
