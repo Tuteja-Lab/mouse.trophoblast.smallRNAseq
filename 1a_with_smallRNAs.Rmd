@@ -230,6 +230,16 @@ awk 'BEGIN{OFS=FS="\t"}FNR==NR{a[$1]=$2"\t"$3;next}{print $1,a[$1],$0}' \
 library(scales)
 library(tidyverse)
 library(plotly)
+library(DESeq2)
+library(RColorBrewer)
+library(pheatmap)
+library(genefilter)
+library(ggrepel)
+library(biomaRt)
+library(reshape2)
+library(PupillometryR)
+library(ComplexUpset)
+library(ggvenn)
 ```
 
 ```{r dataload, warnings=TRUE, message=FALSE}
@@ -438,15 +448,7 @@ For the next steps, we used `DESeq2` for performing the DE analyses. Results wer
 
 ```{r, warnings=TRUE, message=FALSE}
 setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq")
-library(DESeq2)
-library(RColorBrewer)
-library(pheatmap)
-library(genefilter)
-library(ggrepel)
-library(biomaRt)
-library(reshape2)
-library(PupillometryR)
-library(ComplexUpset)
+
 ```
 
 ## Import counts and sample metadata
@@ -1008,8 +1010,8 @@ plotUpSet <- function(fulltable = decile.data) {
     queries = list(
       upset_query(
         intersect = inter,
-        color = '#99a1a4',
-        fill = '#99a1a4',
+        color = '#C19B5D',
+        fill = '#C19B5D',
         only_components = c('intersections_matrix', 'Intersection size')
       ),
       upset_query(
@@ -1093,6 +1095,21 @@ filterUpsetRes(quartile.data, title = "quartile")
 filterUpsetRes(decile.data, title = "decile")
 ```
 
+## Target genes for miRNAs
+
+Target genes for miRNAs was done manually using the [`miRSystem`](http://mirsystem.cgm.ntu.edu.tw/index.php) server. The target genes and pathway genes were saved as `csv` files. The intersection of the target genes between the diff and undiff samples were plotted.
+
+```{r ggvenn, fig.cap="Figure 10: Target genes of miRNAs DE in diff and undiff samples (intersection)", fig.width=8, fig.height=6}
+files <- list.files(path='target_genes/', pattern="DE.*\\_targetGenes.csv$")
+lst <- setNames(lapply(files, read.csv), tools::file_path_sans_ext(basename(files)))
+x <- lapply(lst, '[[', 1)
+names(x) <- c("Up-regulated in diff","Up-regulated in undiff")
+ggvenn(
+  x, 
+  fill_color = c("#c6007b", "#a0b600"),
+  stroke_size = 0.3, set_name_size = 4
+)
+```
 
 # MultiQC report:
 
