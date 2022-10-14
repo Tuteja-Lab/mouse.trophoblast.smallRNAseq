@@ -1131,7 +1131,107 @@ cd target_genes
                     grep -wv "TARGET_GENE" |\
                     sort)
     > comm_file.tsv
+cut -f 1 comm_file.tsv |\
+    sort |\
+    uniq |\
+    awk 'NF==1' > DE_up_undiff_only_targetGenes.csv
+cut -f 2 comm_file.tsv |\
+    sort |\
+    uniq |\
+    awk 'NF==1' > DE_up_diff_only_targetGenes.csv
+cut -f 3 comm_file.tsv |\
+    sort |\
+    uniq |\
+    awk 'NF==1' > DE_up_undiff_and_diff_targetGenes.csv
 ```
+
+# Enrichment analyses of target genes
+
+
+```{r tenrich, warnings=TRUE, message=FALSE}
+setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq/target_genes")
+source(  "../assets/theme_clean.R")
+library(TissueEnrich)
+files <-
+  list.files(path = '.', pattern = ".*\\_targetGenes.csv$")
+lst <-
+  setNames(lapply(files, read.csv),
+           tools::file_path_sans_ext(basename(files)))
+gene.lsts <- lapply(lst, '[[', 1)
+plotTE <- function(inputGenes = gene.list,
+                   myColor = "color") {
+  gs <-
+    GeneSet(geneIds = inputGenes,
+            organism = "Mus Musculus",
+            geneIdType = SymbolIdentifier())
+  output <- teEnrichment(inputGenes = gs, rnaSeqDataset = 3)
+  en.output <-
+    setNames(data.frame(assay(output[[1]]), 
+                        row.names = rowData(output[[1]])[, 1]),
+             colData(output[[1]])[, 1])
+  en.output$Tissue <- rownames(en.output)
+  logp <- -log10(0.05)
+  en.output <-
+    mutate(en.output,
+           significance = ifelse(Log10PValue > logp,
+                                 "colored", "nocolor"))
+  en.output$Sig <- "NA"
+  ggplot(en.output, aes(reorder(Tissue, Log10PValue),
+                        Log10PValue, 
+                        fill = significance)) +
+    geom_bar(stat = 'identity') +
+    theme_clean() + ylab("- log10 adj. p-value") + xlab("") +
+    scale_fill_manual(values = c("colored" = myColor, "nocolor" = "gray")) +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)),
+                       breaks = scales::pretty_breaks()) +
+    coord_flip()
+}
+```
+
+## Enrichment plots (`TissueEnrich`) {.tabset}
+
+### up-regulated in Diff
+
+```{r te1, fig.cap="Figure 11A: Target genes of miRNAs up-regulated in Diff enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+plotTE(gene.lsts$DE_up_diff_targetGenes, myColor = "#c6007b")
+```
+
+### up-regulated in Undiff
+
+```{r te2, fig.cap="Figure 11B: Target genes of miRNAsup-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+plotTE(gene.lsts$DE_up_undiff_targetGenes, myColor = "#a0b600")
+```
+
+### up-regulated in both Diff and Undiff
+
+```{r te3, fig.cap="Figure 11C: Target genes of miRNAs up-regulated in both Diff and Undiff) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+plotTE(gene.lsts$DE_up_undiff_and_diff_targetGenes, myColor = "#C19B5D")
+```
+
+### up-regulated ONLY in Diff
+
+```{r te4, fig.cap="Figure 11D: Target genes of miRNAs up-regulated ONLY in Diff) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+plotTE(gene.lsts$DE_up_diff_only_targetGenes, myColor = "#c6007b")
+```
+
+### up-regulated ONLY in Undiff
+
+```{r te5, fig.cap="Figure 11E: Target genes of miRNAs up-regulated ONLY in Undiff) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+plotTE(gene.lsts$DE_up_undiff_only_targetGenes, myColor = "#a0b600")
+```
+### Most expressed genes in Diff and Undiff (top quartile)
+
+```{r te6, fig.cap="Figure 11F: Target genes of miRNAs most expressed genes in Diff and Undiff - 75th percentile) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+plotTE(gene.lsts$Top_Quartile_Exp_targetGenes, myColor = "#f53d00")
+```
+
+### Most expressed genes in Diff and Undiff (top decile)
+
+```{r te7, fig.cap="Figure 11A: Target genes of miRNAs most expressed genes in Diff and Undiff - 90th percentile) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+plotTE(gene.lsts$Top_Decile_Exp_targetGenes, myColor = "#ef87ff" )
+```
+
+
 
 # MultiQC report:
 
