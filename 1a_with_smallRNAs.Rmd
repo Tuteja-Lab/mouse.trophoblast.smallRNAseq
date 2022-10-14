@@ -1103,7 +1103,7 @@ Target genes for miRNAs was done manually using the [`miRSystem`](http://mirsyst
 library(ggvenn)
 setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq/target_genes")
 files <-
-  list.files(path = '.', pattern = "DE.*\\_targetGenes.csv$")
+    list.files(path = '.', pattern = "^DE_up_(diff|undiff)_targetGenes.csv$")
 lst <-
   setNames(lapply(files, read.csv),
            tools::file_path_sans_ext(basename(files)))
@@ -1190,44 +1190,44 @@ plotTE <- function(inputGenes = gene.list,
 
 ## Enrichment plots (`TissueEnrich`) {.tabset}
 
-### up-regulated in Diff
+### Diff
 
-```{r te1, fig.cap="Figure 11A: Target genes of miRNAs up-regulated in Diff enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+```{r te1, fig.cap="Figure 11A: Target genes of miRNAs up-regulated in Diff enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(gene.lsts$DE_up_diff_targetGenes, myColor = "#c6007b")
 ```
 
-### up-regulated in Undiff
+### Undiff
 
-```{r te2, fig.cap="Figure 11B: Target genes of miRNAsup-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+```{r te2, fig.cap="Figure 11B: Target genes of miRNAsup-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(gene.lsts$DE_up_undiff_targetGenes, myColor = "#a0b600")
 ```
 
-### up-regulated in both Diff and Undiff
+### Diff & Undiff
 
-```{r te3, fig.cap="Figure 11C: Target genes of miRNAs up-regulated in both Diff and Undiff) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+```{r te3, fig.cap="Figure 11C: Target genes of miRNAs up-regulated in both Diff and Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(gene.lsts$DE_up_undiff_and_diff_targetGenes, myColor = "#C19B5D")
 ```
 
-### up-regulated ONLY in Diff
+### Diff ONLY
 
-```{r te4, fig.cap="Figure 11D: Target genes of miRNAs up-regulated ONLY in Diff) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+```{r te4, fig.cap="Figure 11D: Target genes of miRNAs up-regulated ONLY in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(gene.lsts$DE_up_diff_only_targetGenes, myColor = "#c6007b")
 ```
 
-### up-regulated ONLY in Undiff
+### Undiff ONLY
 
-```{r te5, fig.cap="Figure 11E: Target genes of miRNAs up-regulated ONLY in Undiff) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+```{r te5, fig.cap="Figure 11E: Target genes of miRNAs up-regulated ONLY in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(gene.lsts$DE_up_undiff_only_targetGenes, myColor = "#a0b600")
 ```
-### Most expressed genes in Diff and Undiff (top quartile)
+### Diff & Undiff 75pc
 
-```{r te6, fig.cap="Figure 11F: Target genes of miRNAs most expressed genes in Diff and Undiff - 75th percentile) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+```{r te6, fig.cap="Figure 11F: Target genes of miRNAs most expressed genes in Diff and Undiff - 75th percentile) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(gene.lsts$Top_Quartile_Exp_targetGenes, myColor = "#f53d00")
 ```
 
-### Most expressed genes in Diff and Undiff (top decile)
+### Diff & Undiff 90pc
 
-```{r te7, fig.cap="Figure 11A: Target genes of miRNAs most expressed genes in Diff and Undiff - 90th percentile) enrichment in Mouse ENCODE data", fig.width=10, fig.height=6}
+```{r te7, fig.cap="Figure 11A: Target genes of miRNAs most expressed genes in Diff and Undiff - 90th percentile) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(gene.lsts$Top_Decile_Exp_targetGenes, myColor = "#ef87ff" )
 ```
 
