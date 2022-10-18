@@ -1204,36 +1204,21 @@ plotTE.heatmap <-
     seExp <- output[[2]][[inputTissue]]
     exp <-
       setNames(data.frame(assay(seExp), row.names = rowData(seExp)[, 1]), colData(seExp)[, 1])
-    exp$Gene <- row.names(exp)
-    exp <-
-      exp %>% gather(key = "Tissue", value = "expression", 1:(ncol(exp) - 1))
-    p <- ggplot(exp, aes(Tissue, Gene)) +
-      geom_tile(aes(fill = expression), colour = "white") +
-      scale_fill_gradient(low = "yellow",
-                          high = "red",
-                          na.value = NA) +
-      labs(x = '', y = '') +
-      theme_bw() +
-      guides(fill = guide_legend(title = "Log2(TPM)")) +
-      theme(plot.title = element_text(hjust = 0.5, size = 20),
-            axis.title = element_text(size = 15)) +
-      theme(
-        axis.text.x = element_text(
-          angle = 45,
-          vjust = 1,
-          hjust = 1
-        ),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()
-      )
-    if (GeneNames) {
-      p
-    } else {
-      p + theme(axis.text.y = element_blank(),
-                axis.ticks.y = element_blank())
-    }
+    g <- pheatmap(
+      exp,
+      color = heat_colors,
+      main = "Title",
+      cluster_rows = F,
+      cluster_cols  = T,
+      show_rownames = GeneNames,
+      border_color = NA,
+      fontsize = 10,
+      scale = "row",
+      fontsize_row = 8
+    )
+    g
   }
-  
+
 ```
 
 ## Enrichment plots (`TissueEnrich`) {.tabset}
