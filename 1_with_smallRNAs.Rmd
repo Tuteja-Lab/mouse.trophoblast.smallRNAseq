@@ -1210,7 +1210,38 @@ plotTE.heatmap <-
     g <- pheatmap(
       exp,
       color = heat_colors,
-      main = "Title",
+      cluster_rows = F,
+      cluster_cols  = F,
+      show_rownames = GeneNames,
+      border_color = NA,
+      fontsize = 10,
+      scale = "row",
+      fontsize_row = 8
+    )
+    g
+  }
+plotTE.heatmap.full <-
+  function(inputGenes = gene.list,
+           inputTissue = "E14.5-Brain",
+           GeneNames = FALSE
+           ) {
+    gs <-
+      GeneSet(geneIds = inputGenes,
+              organism = "Mus Musculus",
+              geneIdType = SymbolIdentifier())
+    output <- teEnrichment(inputGenes = gs, rnaSeqDataset = 3)
+    en.output <-
+      setNames(data.frame(assay(output[[1]]),
+                          row.names = rowData(output[[1]])[, 1]),
+               colData(output[[1]])[, 1])
+    en.output$Tissue <- rownames(en.output)
+    seExp <- output[[2]][[inputTissue]]
+    exp <-
+      setNames(data.frame(assay(seExp), row.names = rowData(seExp)[, 1]), 
+               colData(seExp)[, 1])
+    g <- pheatmap(
+      exp,
+      color = heat_colors,
       cluster_rows = F,
       cluster_cols  = T,
       show_rownames = GeneNames,
@@ -1221,7 +1252,6 @@ plotTE.heatmap <-
     )
     g
   }
-
 ```
 
 ## Enrichment plots (`TissueEnrich`) {.tabset}
@@ -1319,31 +1349,31 @@ plotTE.heatmap(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-Brain"
 ### Diff
 
 ```{r te.hmB1, fig.cap="Figure 11A: Target genes of miRNAs up-regulated in Diff enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_diff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(gene.lsts$DE_up_diff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
 ```
 
 ### Undiff
 
 ```{r te.hmB2, fig.cap="Figure 11B: Target genes of miRNAsup-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_undiff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(gene.lsts$DE_up_undiff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
 ```
 
 ### Diff & Undiff
 
 ```{r te.hmB3, fig.cap="Figure 11C: Target genes of miRNAs up-regulated in both Diff and Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_undiff_and_diff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(gene.lsts$DE_up_undiff_and_diff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
 ```
 
 ### Diff ONLY
 
 ```{r te.hmB4, fig.cap="Figure 11D: Target genes of miRNAs up-regulated ONLY in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_diff_only_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(gene.lsts$DE_up_diff_only_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
 ```
 
 ### Undiff ONLY
 
 ```{r te.hmB5, fig.cap="Figure 11E: Target genes of miRNAs up-regulated ONLY in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_undiff_only_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(gene.lsts$DE_up_undiff_only_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
 ```
 ### Diff & Undiff 75pc
 
@@ -1354,7 +1384,7 @@ plotTE.heatmap(gene.lsts$Top_Quartile_Exp_targetGenes, inputTissue = "E14.5-Brai
 ### Diff & Undiff 90pc
 
 ```{r te.hmB7, fig.cap="Figure 11A: Target genes of miRNAs most expressed genes in Diff and Undiff - 90th percentile) enrichment in Mouse ENCODE data", fig.width=8, fig.height=42}
-plotTE.heatmap(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-Brain" , GeneNames = FALSE)
+plotTE.heatmap.full(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-Brain" , GeneNames = FALSE)
 ```
 
 

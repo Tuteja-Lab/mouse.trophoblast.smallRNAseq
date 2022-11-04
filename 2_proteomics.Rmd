@@ -43,9 +43,7 @@ library(tidyverse)
 library(plotly)
 library(TissueEnrich)
 library(ggrepel)
-setwd(
-  "C:/Users/arun/OneDrive - Iowa State University/OrganizedDocuments/github/mouse.trophoblast.smallRNAseq"
-)
+setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq")
 dat <-
   read.csv("assets/data_processed.csv",
            row.names = NULL,
@@ -67,14 +65,15 @@ dat %>% summarise(Number_of_proteins = n())
 
 ```{r pvalPlot, fig.cap="Figure 1: Volcano plot (proteomics)", fig.width=8, fig.height=6}
 df <- orig_data
+exp <- log(1.5, 2)
 df$log2fc <- log(df$Ratio, base = 2)
 df$negLog10p = -log10(df$Qvalue)
-df$diffexpressed[df$log2fc <= -0.584962501 &
+df$diffexpressed[df$log2fc <= -exp &
                    df$Qvalue <= 0.05] <- "up in Diff"
-df$diffexpressed[df$log2fc >= 0.584962501 &
+df$diffexpressed[df$log2fc >= exp &
                    df$Qvalue <= 0.05] <- "up in Undiff"
-df$diffexpressed[df$log2fc >= -0.584962501 &
-                   df$log2fc <= 0.584962501] <- "other genes"
+df$diffexpressed[df$log2fc >= -exp &
+                   df$log2fc <= exp] <- "other genes"
 df$diffexpressed[df$Qvalue > 0.05] <- "other genes"
 df$newGenes <-
   str_replace_all(string = df$Genes,
