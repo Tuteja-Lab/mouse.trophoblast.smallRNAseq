@@ -61,7 +61,7 @@ quick check:
 dat_tidy <- dat %>% drop_na()
 dat %>% summarise(Number_of_proteins = n())
 ```
-## Volcano plot
+# Volcano plot
 
 ```{r pvalPlot, fig.cap="Figure 1: Volcano plot (proteomics)", fig.width=8, fig.height=6}
 df <- orig_data
@@ -102,7 +102,7 @@ ggplotly(g)
 #ggsave("prot_volc.png", dpi=900, width = 8, height = 6)
 ```
 
-## PCA plot
+# PCA plot
 
 This was run on another R version due to incompatibility with existing packages.
 The command is shown below, but it is not executed when knitting the document.
@@ -158,7 +158,7 @@ g <- ggplot(d, aes(PC1, PC2, color = group)) +
   ylab(paste("PC2", round(mSet$analSet$pca$variance[2] * 100, 2), "% variance"))
 g
 ```
-## Tissue Enrichment 
+# Tissue Enrichment 
 
 ```{r tissueEnrich, warning=TRUE, message=TRUE}
 plotTE <- function(inputGenes = gene.list,
@@ -233,38 +233,38 @@ undiff.90pc <- filterCuts(df.undiff, 10, type = decile)
 diff.90pc <- filterCuts(df.diff, 10, type = decile)
 ```
 
-## Enrichment plots (`TissueEnrich`) {.tabset}
+# Enrichment plots (`TissueEnrich`) {.tabset}
 
-### Diff DE
+## Diff DE
 
 ```{r te1, fig.cap="Figure 3A: Differentially expressed proteins (up-regulated in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(unique(diff), myColor = "#c6007b")
 ```
 
-### Undiff DE
+## Undiff DE
 
 ```{r te2, fig.cap="Figure 3B: Differentially expressed proteins (up-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(unique(undiff), myColor = "#a0b600")
 ```
 
-### Diff 75th pc
+## Diff 75th pc
 
 ```{r te3, fig.cap="Figure 3C: Top quartile proteins (Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(as.character(diff.75pc$proteinID), "#c6007b")
 ```
 
-### Diff 90th pc
+## Diff 90th pc
 
 ```{r te4, fig.cap="Figure 3D: Top decile proteins (Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(as.character(diff.90pc$proteinID), "#c6007b")
 ```
 
-### Undiff 75th pc
+## Undiff 75th pc
 
 ```{r te5, fig.cap="Figure 3E: Top quartile proteins (Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(as.character(undiff.75pc$proteinID), "#a0b600")
 ```
-### Undiff 90th pc
+## Undiff 90th pc
 
 ```{r te6, fig.cap="Figure 3F: Top decile proteins (Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(as.character(undiff.90pc$proteinID), "#a0b600")
