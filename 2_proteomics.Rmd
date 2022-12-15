@@ -308,6 +308,8 @@ plotTE(as.character(undiff.90pc$proteinID), "#a0b600")
 
 # Enrichment Heatmaps for E14.5-Placenta {.tabset}
 
+## Diff DE
+
 ```{r hmte1, fig.cap="Figure 4A: Differentially expressed proteins (up-regulated in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=4}
 plotTE.heatmap.full(inputGenes = unique(diff), inputTissue = "E14.5-Placenta", GeneNames = TRUE)
 ```
