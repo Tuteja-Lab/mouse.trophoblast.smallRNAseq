@@ -237,8 +237,7 @@ heat_colors <- brewer.pal(9, "YlOrRd")
 plotTE.heatmap.full <-
   function(inputGenes = gene.list,
            inputTissue = "E14.5-Brain",
-           GeneNames = FALSE
-           ) {
+           GeneNames = FALSE) {
     gs <-
       GeneSet(geneIds = inputGenes,
               organism = "Mus Musculus",
@@ -251,7 +250,7 @@ plotTE.heatmap.full <-
     en.output$Tissue <- rownames(en.output)
     seExp <- output[[2]][[inputTissue]]
     exp <-
-      setNames(data.frame(assay(seExp), row.names = rowData(seExp)[, 1]), 
+      setNames(data.frame(assay(seExp), row.names = rowData(seExp)[, 1]),
                colData(seExp)[, 1])
     g <- pheatmap(
       exp,
@@ -311,13 +310,21 @@ plotTE(as.character(undiff.90pc$proteinID), "#a0b600")
 ## Diff DE
 
 ```{r hmte1, fig.cap="Figure 4A: Differentially expressed proteins (up-regulated in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=4}
-plotTE.heatmap.full(inputGenes = unique(diff), inputTissue = "E14.5-Placenta", GeneNames = TRUE)
+plotTE.heatmap.full(
+  inputGenes = unique(diff),
+  inputTissue = "E14.5-Placenta",
+  GeneNames = TRUE
+)
 ```
 
 ## Undiff DE
 
 ```{r hmte2, fig.cap="Figure 4B: Differentially expressed proteins (up-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=2}
-plotTE.heatmap.full(inputGenes = unique(undiff), inputTissue = "E14.5-Placenta", GeneNames = TRUE)
+plotTE.heatmap.full(
+  inputGenes = unique(undiff),
+  inputTissue = "E14.5-Placenta",
+  GeneNames = TRUE
+)
 ```
 
 # Session Information

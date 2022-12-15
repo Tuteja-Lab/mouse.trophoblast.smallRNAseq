@@ -1103,7 +1103,7 @@ Target genes for miRNAs was done manually using the [`miRSystem`](http://mirsyst
 library(ggvenn)
 setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq/target_genes")
 files <-
-    list.files(path = '.', pattern = "^DE_up_(diff|undiff)_targetGenes.csv$")
+  list.files(path = '.', pattern = "^DE_up_(diff|undiff)_targetGenes.csv$")
 lst <-
   setNames(lapply(files, read.csv),
            tools::file_path_sans_ext(basename(files)))
@@ -1317,7 +1317,7 @@ plotTE(gene.lsts$Top_Quartile_Exp_targetGenes, myColor = "#f53d00")
 ### Diff & Undiff 90pc
 
 ```{r te7, fig.cap="Figure 11A: Target genes of miRNAs most expressed genes in Diff and Undiff - 90th percentile) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
-plotTE(gene.lsts$Top_Decile_Exp_targetGenes, myColor = "#ef87ff" )
+plotTE(gene.lsts$Top_Decile_Exp_targetGenes, myColor = "#ef87ff")
 ```
 
 
@@ -1327,42 +1327,66 @@ plotTE(gene.lsts$Top_Decile_Exp_targetGenes, myColor = "#ef87ff" )
 ### Diff
 
 ```{r te.hm1, fig.cap="Figure 11A: Target genes of miRNAs up-regulated in Diff enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_diff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = TRUE)
+plotTE.heatmap(gene.lsts$DE_up_diff_targetGenes,
+               inputTissue = "E14.5-Brain",
+               GeneNames = TRUE)
 ```
 
 ### Undiff
 
 ```{r te.hm2, fig.cap="Figure 11B: Target genes of miRNAsup-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_undiff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = TRUE)
+plotTE.heatmap(gene.lsts$DE_up_undiff_targetGenes,
+               inputTissue = "E14.5-Brain",
+               GeneNames = TRUE)
 ```
 
 ### Diff & Undiff
 
 ```{r te.hm3, fig.cap="Figure 11C: Target genes of miRNAs up-regulated in both Diff and Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_undiff_and_diff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = TRUE)
+plotTE.heatmap(
+  gene.lsts$DE_up_undiff_and_diff_targetGenes,
+  inputTissue = "E14.5-Brain",
+  GeneNames = TRUE
+)
 ```
 
 ### Diff ONLY
 
 ```{r te.hm4, fig.cap="Figure 11D: Target genes of miRNAs up-regulated ONLY in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_diff_only_targetGenes, inputTissue = "E14.5-Brain", GeneNames = TRUE)
+plotTE.heatmap(
+  gene.lsts$DE_up_diff_only_targetGenes,
+  inputTissue = "E14.5-Brain",
+  GeneNames = TRUE
+)
 ```
 
 ### Undiff ONLY
 
 ```{r te.hm5, fig.cap="Figure 11E: Target genes of miRNAs up-regulated ONLY in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$DE_up_undiff_only_targetGenes, inputTissue = "E14.5-Brain", GeneNames = TRUE)
+plotTE.heatmap(
+  gene.lsts$DE_up_undiff_only_targetGenes,
+  inputTissue = "E14.5-Brain",
+  GeneNames = TRUE
+)
 ```
 ### Diff & Undiff 75pc
 
 ```{r te.hm6, fig.cap="Figure 11F: Target genes of miRNAs most expressed genes in Diff and Undiff - 75th percentile) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$Top_Quartile_Exp_targetGenes, inputTissue = "E14.5-Brain", GeneNames = TRUE)
+plotTE.heatmap(
+  gene.lsts$Top_Quartile_Exp_targetGenes,
+  inputTissue = "E14.5-Brain",
+  GeneNames = TRUE
+)
 ```
 
 ### Diff & Undiff 90pc
 
 ```{r te.hm7, fig.cap="Figure 11A: Target genes of miRNAs most expressed genes in Diff and Undiff - 90th percentile) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-Brain" , GeneNames = TRUE)
+plotTE.heatmap(
+  gene.lsts$Top_Decile_Exp_targetGenes,
+  inputTissue = "E14.5-Brain" ,
+  GeneNames = TRUE
+)
 ```
 
 
@@ -1372,42 +1396,66 @@ plotTE.heatmap(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-Brain"
 ### Diff
 
 ```{r te.hmB1, fig.cap="Figure 11A: Target genes of miRNAs up-regulated in Diff enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap.full(gene.lsts$DE_up_diff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(gene.lsts$DE_up_diff_targetGenes,
+                    inputTissue = "E14.5-Brain",
+                    GeneNames = FALSE)
 ```
 
 ### Undiff
 
 ```{r te.hmB2, fig.cap="Figure 11B: Target genes of miRNAsup-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap.full(gene.lsts$DE_up_undiff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(gene.lsts$DE_up_undiff_targetGenes,
+                    inputTissue = "E14.5-Brain",
+                    GeneNames = FALSE)
 ```
 
 ### Diff & Undiff
 
 ```{r te.hmB3, fig.cap="Figure 11C: Target genes of miRNAs up-regulated in both Diff and Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap.full(gene.lsts$DE_up_undiff_and_diff_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(
+  gene.lsts$DE_up_undiff_and_diff_targetGenes,
+  inputTissue = "E14.5-Brain",
+  GeneNames = FALSE
+)
 ```
 
 ### Diff ONLY
 
 ```{r te.hmB4, fig.cap="Figure 11D: Target genes of miRNAs up-regulated ONLY in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap.full(gene.lsts$DE_up_diff_only_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(
+  gene.lsts$DE_up_diff_only_targetGenes,
+  inputTissue = "E14.5-Brain",
+  GeneNames = FALSE
+)
 ```
 
 ### Undiff ONLY
 
 ```{r te.hmB5, fig.cap="Figure 11E: Target genes of miRNAs up-regulated ONLY in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap.full(gene.lsts$DE_up_undiff_only_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap.full(
+  gene.lsts$DE_up_undiff_only_targetGenes,
+  inputTissue = "E14.5-Brain",
+  GeneNames = FALSE
+)
 ```
 ### Diff & Undiff 75pc
 
 ```{r te.hmB6, fig.cap="Figure 11F: Target genes of miRNAs most expressed genes in Diff and Undiff - 75th percentile) enrichment in Mouse ENCODE data", fig.width=8, fig.height=10}
-plotTE.heatmap(gene.lsts$Top_Quartile_Exp_targetGenes, inputTissue = "E14.5-Brain", GeneNames = FALSE)
+plotTE.heatmap(
+  gene.lsts$Top_Quartile_Exp_targetGenes,
+  inputTissue = "E14.5-Brain",
+  GeneNames = FALSE
+)
 ```
 
 ### Diff & Undiff 90pc
 
 ```{r te.hmB7, fig.cap="Figure 11A: Target genes of miRNAs most expressed genes in Diff and Undiff - 90th percentile) enrichment in Mouse ENCODE data", fig.width=8, fig.height=42}
-plotTE.heatmap.full(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-Brain" , GeneNames = FALSE)
+plotTE.heatmap.full(
+  gene.lsts$Top_Decile_Exp_targetGenes,
+  inputTissue = "E14.5-Brain" ,
+  GeneNames = FALSE
+)
 ```
 
 
@@ -1418,59 +1466,116 @@ plotTE.heatmap.full(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-B
 ### Diff
 
 ```{r te.glQ1}
-diff <- heatmap.genelst(gene.lsts$DE_up_diff_targetGenes, inputTissue = "E14.5-Brain", myCut = 4, tableTitle = "Diff")
+diff <-
+  heatmap.genelst(
+    gene.lsts$DE_up_diff_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 4,
+    tableTitle = "Diff"
+  )
 knitr::kable(diff, digits = 2, caption = "Diff")
 ```
 
 ### Undiff
 
 ```{r te.glQ2}
-undiff <- heatmap.genelst(gene.lsts$DE_up_undiff_targetGenes, inputTissue = "E14.5-Brain", myCut = 4, tableTitle = "Undiff")
+undiff <-
+  heatmap.genelst(
+    gene.lsts$DE_up_undiff_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 4,
+    tableTitle = "Undiff"
+  )
 knitr::kable(undiff, digits = 2, caption = "Undiff")
 ```
 
 ### Diff & Undiff
 
 ```{r te.glQ3}
-both <- heatmap.genelst(gene.lsts$DE_up_undiff_and_diff_targetGenes, inputTissue = "E14.5-Brain", myCut = 4, tableTitle = "Diff & Undiff")
+both <-
+  heatmap.genelst(
+    gene.lsts$DE_up_undiff_and_diff_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 4,
+    tableTitle = "Diff & Undiff"
+  )
 knitr::kable(both, digits = 2, caption = "Diff & Undiff")
 ```
 
 ### Diff ONLY
 
 ```{r te.glQ4}
-diffOnly <- heatmap.genelst(gene.lsts$DE_up_diff_only_targetGenes, inputTissue = "E14.5-Brain", myCut = 4, tableTitle = "Diff ONLY")
+diffOnly <-
+  heatmap.genelst(
+    gene.lsts$DE_up_diff_only_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 4,
+    tableTitle = "Diff ONLY"
+  )
 knitr::kable(diffOnly, digits = 2, caption = "Diff ONLY")
 ```
 
 ### Undiff ONLY
 
 ```{r te.glQ5}
-undiffOnly <- heatmap.genelst(gene.lsts$DE_up_undiff_only_targetGenes, inputTissue = "E14.5-Brain", myCut = 4, tableTitle = "Undiff ONLY")
+undiffOnly <-
+  heatmap.genelst(
+    gene.lsts$DE_up_undiff_only_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 4,
+    tableTitle = "Undiff ONLY"
+  )
 knitr::kable(undiffOnly, digits = 2, caption = "Undiff ONLY")
 ```
 
 ### Diff & Undiff 75pc
 
 ```{r te.glQ6}
-both75pc <- heatmap.genelst(gene.lsts$Top_Quartile_Exp_targetGenes, inputTissue = "E14.5-Brain", myCut = 4, tableTitle = "Diff & Undiff 75pc")
+both75pc <-
+  heatmap.genelst(
+    gene.lsts$Top_Quartile_Exp_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 4,
+    tableTitle = "Diff & Undiff 75pc"
+  )
 knitr::kable(both75pc, digits = 2, caption = "Diff & Undiff 75pc")
 ```
 
 ### Diff & Undiff 90pc
 
 ```{r te.glQ7}
-both90pc <- heatmap.genelst(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-Brain" , myCut = 4, tableTitle = "Diff & Undiff 90pc")
+both90pc <-
+  heatmap.genelst(
+    gene.lsts$Top_Decile_Exp_targetGenes,
+    inputTissue = "E14.5-Brain" ,
+    myCut = 4,
+    tableTitle = "Diff & Undiff 90pc"
+  )
 knitr::kable(both90pc, digits = 2, caption = "Diff & Undiff 90pc")
 ```
 
 ### Upset plot
 
 ```{r TopUpset1, fig.cap="Figure 12: Intersection of enriched E14.5-Brain genes in various samples (top quartile)", fig.width=8, fig.height=6}
-dat <- c("diff", "undiff", "both", "diffOnly", "undiffOnly", "both75pc", "both90pc")
-UpSetR::upset(UpSetR::fromList(mget(dat)), nsets = 24, number.angles = 30, point.size = 3.5, line.size = 2, 
-      mainbar.y.label = "Gene Intersections (quartile)", sets.x.label = "E14.5-Brain enriched genes", order.by = "freq", 
-      text.scale = c(1.3, 1.3, 1, 1, 2, 0.75))
+dat <-
+  c("diff",
+    "undiff",
+    "both",
+    "diffOnly",
+    "undiffOnly",
+    "both75pc",
+    "both90pc")
+UpSetR::upset(
+  UpSetR::fromList(mget(dat)),
+  nsets = 24,
+  number.angles = 30,
+  point.size = 3.5,
+  line.size = 2,
+  mainbar.y.label = "Gene Intersections (quartile)",
+  sets.x.label = "E14.5-Brain enriched genes",
+  order.by = "freq",
+  text.scale = c(1.3, 1.3, 1, 1, 2, 0.75)
+)
 ```
 
 
@@ -1479,58 +1584,115 @@ UpSetR::upset(UpSetR::fromList(mget(dat)), nsets = 24, number.angles = 30, point
 ### Diff
 
 ```{r te.glD1}
-diff <- heatmap.genelst(gene.lsts$DE_up_diff_targetGenes, inputTissue = "E14.5-Brain", myCut = 10, tableTitle = "Diff")
+diff <-
+  heatmap.genelst(
+    gene.lsts$DE_up_diff_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 10,
+    tableTitle = "Diff"
+  )
 knitr::kable(diff, digits = 2, caption = "Diff")
 ```
 
 ### Undiff
 
 ```{r te.glD2}
-undiff <- heatmap.genelst(gene.lsts$DE_up_undiff_targetGenes, inputTissue = "E14.5-Brain", myCut = 10, tableTitle = "Undiff")
+undiff <-
+  heatmap.genelst(
+    gene.lsts$DE_up_undiff_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 10,
+    tableTitle = "Undiff"
+  )
 knitr::kable(undiff, digits = 2, caption = "Undiff")
 ```
 
 ### Diff & Undiff
 
 ```{r te.glD3}
-both <- heatmap.genelst(gene.lsts$DE_up_undiff_and_diff_targetGenes, inputTissue = "E14.5-Brain", myCut = 10, tableTitle = "Diff & Undiff")
+both <-
+  heatmap.genelst(
+    gene.lsts$DE_up_undiff_and_diff_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 10,
+    tableTitle = "Diff & Undiff"
+  )
 knitr::kable(both, digits = 2, caption = "Diff & Undiff")
 ```
 
 ### Diff ONLY
 
 ```{r te.glD4}
-diffOnly <- heatmap.genelst(gene.lsts$DE_up_diff_only_targetGenes, inputTissue = "E14.5-Brain", myCut = 10, tableTitle = "Diff ONLY")
+diffOnly <-
+  heatmap.genelst(
+    gene.lsts$DE_up_diff_only_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 10,
+    tableTitle = "Diff ONLY"
+  )
 knitr::kable(diffOnly, digits = 2, caption = "Diff ONLY")
 ```
 
 ### Undiff ONLY
 
 ```{r te.glD5}
-undiffOnly <- heatmap.genelst(gene.lsts$DE_up_undiff_only_targetGenes, inputTissue = "E14.5-Brain", myCut = 10, tableTitle = "Undiff ONLY")
+undiffOnly <-
+  heatmap.genelst(
+    gene.lsts$DE_up_undiff_only_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 10,
+    tableTitle = "Undiff ONLY"
+  )
 knitr::kable(undiffOnly, digits = 2, caption = "Undiff ONLY")
 ```
 ### Diff & Undiff 75pc
 
 ```{r te.glD6}
-both75pc <- heatmap.genelst(gene.lsts$Top_Quartile_Exp_targetGenes, inputTissue = "E14.5-Brain", myCut = 10, tableTitle = "Diff & Undiff 75pc")
+both75pc <-
+  heatmap.genelst(
+    gene.lsts$Top_Quartile_Exp_targetGenes,
+    inputTissue = "E14.5-Brain",
+    myCut = 10,
+    tableTitle = "Diff & Undiff 75pc"
+  )
 knitr::kable(both75pc, digits = 2, caption = "Diff & Undiff 75pc")
 ```
 
 ### Diff & Undiff 90pc
 
 ```{r te.glD7}
-both90pc <- heatmap.genelst(gene.lsts$Top_Decile_Exp_targetGenes, inputTissue = "E14.5-Brain" , myCut = 10, tableTitle = "Diff & Undiff 90pc")
+both90pc <-
+  heatmap.genelst(
+    gene.lsts$Top_Decile_Exp_targetGenes,
+    inputTissue = "E14.5-Brain" ,
+    myCut = 10,
+    tableTitle = "Diff & Undiff 90pc"
+  )
 knitr::kable(both90pc, digits = 2, caption = "Diff & Undiff 90pc")
 ```
 
 ### Upset plot
 
 ```{r TopUpset2, fig.cap="Figure 13: Intersection of enriched E14.5-Brain genes in various samples (top decile)", fig.width=8, fig.height=6}
-dat <- c("diff", "undiff", "both", "diffOnly", "undiffOnly", "both75pc", "both90pc")
-UpSetR::upset(UpSetR::fromList(mget(dat)), nsets = 24, number.angles = 30, point.size = 3.5, line.size = 2, 
-      mainbar.y.label = "Gene Intersections (quartile)", sets.x.label = "E14.5-Brain enriched genes", order.by = "freq", 
-      text.scale = c(1.3, 1.3, 1, 1, 2, 0.75))
+dat <-
+  c("diff",
+    "undiff",
+    "both",
+    "diffOnly",
+    "undiffOnly",
+    "both75pc",
+    "both90pc")
+UpSetR::upset(
+  UpSetR::fromList(mget(dat)),
+  nsets = 24,
+  number.angles = 30,
+  point.size = 3.5,
+  line.size = 2,
+  mainbar.y.label = "Gene Intersections (quartile)",
+  sets.x.label = "E14.5-Brain enriched genes",
+  order.by = "freq",
+  text.scale = c(1.3, 1.3, 1, 1, 2, 0.75)
+)
 ```
 
 
