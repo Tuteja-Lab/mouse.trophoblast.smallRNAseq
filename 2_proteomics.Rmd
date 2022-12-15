@@ -43,6 +43,8 @@ library(tidyverse)
 library(plotly)
 library(TissueEnrich)
 library(ggrepel)
+library(RColorBrewer)
+library(pheatmap)
 setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq")
 dat <-
   read.csv("assets/data_processed.csv",
@@ -231,6 +233,40 @@ undiff.75pc <- filterCuts(df.undiff, 4, type = quart)
 diff.75pc <- filterCuts(df.diff, 4, type = quart)
 undiff.90pc <- filterCuts(df.undiff, 10, type = decile)
 diff.90pc <- filterCuts(df.diff, 10, type = decile)
+heat_colors <- brewer.pal(9, "YlOrRd")
+plotTE.heatmap.full <-
+  function(inputGenes = gene.list,
+           inputTissue = "E14.5-Brain",
+           GeneNames = FALSE
+           ) {
+    gs <-
+      GeneSet(geneIds = inputGenes,
+              organism = "Mus Musculus",
+              geneIdType = SymbolIdentifier())
+    output <- teEnrichment(inputGenes = gs, rnaSeqDataset = 3)
+    en.output <-
+      setNames(data.frame(assay(output[[1]]),
+                          row.names = rowData(output[[1]])[, 1]),
+               colData(output[[1]])[, 1])
+    en.output$Tissue <- rownames(en.output)
+    seExp <- output[[2]][[inputTissue]]
+    exp <-
+      setNames(data.frame(assay(seExp), row.names = rowData(seExp)[, 1]), 
+               colData(seExp)[, 1])
+    g <- pheatmap(
+      exp,
+      color = heat_colors,
+      cluster_rows = F,
+      cluster_cols  = T,
+      show_rownames = GeneNames,
+      border_color = NA,
+      fontsize = 10,
+      scale = "row",
+      fontsize_row = 8
+    )
+    g
+  }
+
 ```
 
 # Enrichment plots (`TissueEnrich`) {.tabset}
@@ -270,8 +306,23 @@ plotTE(as.character(undiff.75pc$proteinID), "#a0b600")
 plotTE(as.character(undiff.90pc$proteinID), "#a0b600")
 ```
 
+# Enrichment Heatmaps for E14.5-Placenta {.tabset}
 
+```{r hmte1, fig.cap="Figure 4A: Differentially expressed proteins (up-regulated in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=4}
+plotTE.heatmap.full(inputGenes = unique(diff), inputTissue = "E14.5-Placenta", GeneNames = TRUE)
+```
 
+## Undiff DE
+
+```{r hmte2, fig.cap="Figure 4B: Differentially expressed proteins (up-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=2}
+plotTE.heatmap.full(inputGenes = unique(undiff), inputTissue = "E14.5-Placenta", GeneNames = TRUE)
+```
+
+# Session Information
+
+```{r sessioninfo}
+sessionInfo()
+```
 
 
 
