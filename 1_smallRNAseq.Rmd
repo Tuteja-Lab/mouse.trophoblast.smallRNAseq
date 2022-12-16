@@ -1565,6 +1565,14 @@ dat <-
     "undiffOnly",
     "both75pc",
     "both90pc")
+out <- t(splitstackshape:::charMat(listOfValues = mget(dat), fill = 0L))
+colnames(out) <- dat
+write.table(
+  out,
+  file = "quartile.tsv",
+  row.names = TRUE,
+  sep = "\t"
+)
 UpSetR::upset(
   UpSetR::fromList(mget(dat)),
   nsets = 24,
@@ -1682,6 +1690,14 @@ dat <-
     "undiffOnly",
     "both75pc",
     "both90pc")
+out <- t(splitstackshape:::charMat(listOfValues = mget(dat), fill = 0L))
+colnames(out) <- dat
+write.table(
+  out,
+  file = "decile.tsv",
+  row.names = TRUE,
+  sep = "\t"
+)
 UpSetR::upset(
   UpSetR::fromList(mget(dat)),
   nsets = 24,
