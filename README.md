@@ -1,6 +1,6 @@
 # Mouse Trophoblast smallRNAseq analyses
 
-## [Tuteja Lab](https://www.tutejalab.org), Iowa State University, Ames IA-50011
+Performed  at [Tuteja Lab](https://www.tutejalab.org), Iowa State University, Ames IA-50011
 
 ### Documentation
 
@@ -14,8 +14,8 @@ The Wiki for the entire analyses is provided in this R-markdown files [`1_smallR
 * Small RNAseq data available for download upon publication from NCBI GEO [GSE222855](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE222855)
 * Proteomics data available for download upon pulication from [Massive UCSD repository](http://massive.ucsd.edu/ProteoSAFe/status.jsp?task=35b93125f20f40ebbae166e5f8657860)
 
-
 ### Contacts
+
 1. Project related questions: Geetu Tuteja
 2. Scripts and workflow related questions: please open an [issue](https://github.com/Tuteja-Lab/mouse.trophoblast.smallRNAseq/issues/new) here on GitHub.
 
