@@ -1,4 +1,4 @@
-Row.names	diff.75pc	undiff.75pc	gene_biotype	mirbase_id	external_gene_name
+Row.names	pTGC.UpperQuartile	TSC.UpperQuartile	gene_biotype	mirbase_id	external_gene_name
 ENSMUSG00000065395.3	1	1	miRNA	mmu-mir-193a	Mir193a
 ENSMUSG00000065396.3	1	1	miRNA	mmu-mir-99b	Mir99b
 ENSMUSG00000065400.3	1	1	miRNA	mmu-mir-200a	Mir200a

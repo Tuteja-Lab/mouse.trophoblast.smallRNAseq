@@ -71,9 +71,9 @@ exp <- log(1.5, 2)
 df$log2fc <- log(df$Ratio, base = 2)
 df$negLog10p = -log10(df$Qvalue)
 df$diffexpressed[df$log2fc <= -exp &
-                   df$Qvalue <= 0.05] <- "up in Diff"
+                   df$Qvalue <= 0.05] <- "up in pTGC"
 df$diffexpressed[df$log2fc >= exp &
-                   df$Qvalue <= 0.05] <- "up in Undiff"
+                   df$Qvalue <= 0.05] <- "up in TSC"
 df$diffexpressed[df$log2fc >= -exp &
                    df$log2fc <= exp] <- "other genes"
 df$diffexpressed[df$Qvalue > 0.05] <- "other genes"
@@ -95,7 +95,7 @@ g <-
   theme_classic() +
   scale_color_manual(name = "Expression",
                      values = c("grey", "#c6007b", "#a0b600")) +
-  ggtitle(paste("Diff vs. Undiff (proteomics)")) +
+  ggtitle(paste("pTGC vs. TSC (proteomics)")) +
   #  geom_text_repel(show.legend = F) +
   xlab("Log2 fold change") +
   ylab("-log10 pvalue") +
@@ -147,11 +147,18 @@ d <- data.frame(
   intgroup.df,
   name = rownames(mSet$analSet$pca$x)
 )
-
+# rename
+d$sample <- "NA"
+d$rep <- gsub("$", ")", gsub("^rep", "(rep", str_extract(d$name,"rep.")))
+d$sample[which(str_detect(rownames(d), "Diff_rep"))] <- "pTGC"
+d$sample[which(str_detect(rownames(d), "Undiff_rep"))] <- "TSC"
+d$group <- d$sample
+d$name <- paste0(d$sample, d$rep, sep = " ")
+d <- d %>% dplyr::select(PC1:name)
 g <- ggplot(d, aes(PC1, PC2, color = group)) +
   scale_shape_manual(values = 1:10) +
-  scale_color_manual(values = c('Diff'      = '#c6007b',
-                                'Undiff'  = '#a0b600')) +
+  scale_color_manual(values = c('pTGC'      = '#c6007b',
+                                'TSC'  = '#a0b600')) +
   theme_classic() +
   theme(legend.title = element_blank()) +
   geom_point(size = 2, stroke = 2) +
@@ -270,42 +277,36 @@ plotTE.heatmap.full <-
 
 # Enrichment plots (`TissueEnrich`) {.tabset}
 
-## Diff DE
+## pTGC
 
-```{r te1, fig.cap="Figure 3A: Differentially expressed proteins (up-regulated in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
+```{r te1, fig.cap="Figure 3A: Differentially expressed proteins (up-regulated in pTGC) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(unique(diff), myColor = "#c6007b")
 ```
 
-## Undiff DE
+## TSC
 
-```{r te2, fig.cap="Figure 3B: Differentially expressed proteins (up-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
+```{r te2, fig.cap="Figure 3B: Differentially expressed proteins (up-regulated in TSC) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(unique(undiff), myColor = "#a0b600")
 ```
 
-## Diff 75th pc
+## pTGC upper quartile
 
-```{r te3, fig.cap="Figure 3C: Top quartile proteins (Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
+```{r te3, fig.cap="Figure 3C: Upper quartile proteins (pTGC) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(as.character(diff.75pc$proteinID), "#c6007b")
 ```
 
-## Diff 90th pc
+## TSC upper quartile
 
-```{r te4, fig.cap="Figure 3D: Top decile proteins (Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
-plotTE(as.character(diff.90pc$proteinID), "#c6007b")
-```
-
-## Undiff 75th pc
-
-```{r te5, fig.cap="Figure 3E: Top quartile proteins (Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
+```{r te5, fig.cap="Figure 3E: Upper quartile proteins (TSC) enrichment in Mouse ENCODE data", fig.width=8, fig.height=6}
 plotTE(as.character(undiff.75pc$proteinID), "#a0b600")
 ```
 
 
 # Enrichment Heatmaps for E14.5-Placenta {.tabset}
 
-## Diff DE
+## pTGC
 
-```{r hmte1, fig.cap="Figure 4A: Differentially expressed proteins (up-regulated in Diff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=4}
+```{r hmte1, fig.cap="Figure 4A: Heatmaps for E14.5-Brain tissue from the enrichment test using up-regulated proteins of pTGC", fig.width=8, fig.height=4}
 plotTE.heatmap.full(
   inputGenes = unique(diff),
   inputTissue = "E14.5-Placenta",
@@ -313,9 +314,9 @@ plotTE.heatmap.full(
 )
 ```
 
-## Undiff DE
+## TSC
 
-```{r hmte2, fig.cap="Figure 4B: Differentially expressed proteins (up-regulated in Undiff) enrichment in Mouse ENCODE data", fig.width=8, fig.height=2}
+```{r hmte2, fig.cap="Figure 4B: Heatmaps for E14.5-Brain tissue from the enrichment test using up-regulated proteins of TSC", fig.width=8, fig.height=2}
 plotTE.heatmap.full(
   inputGenes = unique(undiff),
   inputTissue = "E14.5-Placenta",

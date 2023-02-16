@@ -1,4 +1,4 @@
-Row.names	diff.75pc	undiff.75pc	gene_biotype	mirbase_id	external_gene_name
+Row.names	pTGC.UpperQuartile	TSC.UpperQuartile	gene_biotype	mirbase_id	external_gene_name
 ENSMUSG00000064390.3	1	1	snoRNA		Snord73b
 ENSMUSG00000064441.3	1	1	snoRNA		Snord37
 ENSMUSG00000064512.4	1	1	snRNA		Gm22456
