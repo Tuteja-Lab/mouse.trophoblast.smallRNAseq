@@ -32,6 +32,8 @@ knitr::opts_knit$set(width = 75)
 ```
 # Environment Setup
 
+All programs needed for the analyses can be setup using [`conda-env.yml`](assets/conda-env.yml) file. 
+
 ```{bash eval = FALSE}
 salloc -N 1 --exclusive -p amd -t 8:00:00
 conda env create -f conda-env.yml
@@ -42,13 +44,10 @@ conda activate smallrna
 
 ## Raw data
 
-Raw data was downloaded from the sequencing facility using the secure link, with `wget` command. The downloaded files were checked for md5sum and compared against list of files expected as per the input samples provided.
+Raw data was downloaded from the sequencing facility using the secure link, with `wget` command. The downloaded files were checked for md5sum and compared against list of files expected as per the input samples provided. The files are now available on NCBI GEO database ([GSE222855](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE222855)), and can be downloaded using `SRA-toolkit` or `enaBrowserTools`.
 
 ```{bash, eval=FALSE, engine="sh"}
-wget https://oc1.rnet.missouri.edu/xyxz
-# link masked 
-# GEO link will be included later
-# merge files of same samples (technical replicates)
+wget https://oc1.rnet.missouri.edu/xyxz # link masked 
 paste <(ls *_L001_R1_001.fastq.gz) <(ls *_L002_R1_001.fastq.gz) | \
    sed 's/\t/ /g' |\
    awk '{print "cat",$1,$2" > "$1}' |\
@@ -512,7 +511,7 @@ percentVar <- round(100 * attr(pcaData, "percentVar"))
 
 ## PCA plot for QC
 
-PCA plot for the dataset that includes all libraries.
+PCA plot for the dataset. We export the PCs and save them as a df to plot them later.
 
 ```{r pcaFull_comp, warnings=TRUE, message=FALSE}
 rv <- rowVars(assay(vsd))
