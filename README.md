@@ -4,7 +4,8 @@ Performed  at [Tuteja Lab](https://www.tutejalab.org), Iowa State University, Am
 
 ### Documentation
 
-The Wiki for the entire analyses is provided in this R-markdown files [`1_smallRNAseq.Rmd`](1_smallRNAseq.Rmd) and [`2_proteomics.Rmd`](2_proteomics.Rmd). The rendered html file is accessible on this link:
+The Wiki for the entire analyses is provided in this R-markdown files [`1_smallRNAseq.Rmd`](1_smallRNAseq.Rmd) and [`2_proteomics.Rmd`](2_proteomics.Rmd). The rendered html file is accessible on this [link](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq).
+Links for the sections are provided below:
 
 1. [Small RNAseq analyses](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq/1_smallRNAseq.html)
 2. [Proteomics analyses](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq/2_proteomics.html)
