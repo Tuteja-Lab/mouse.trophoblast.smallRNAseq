@@ -1,0 +1,1039 @@
+---
+title: "Bulk RNAseq: Differential Expression Analysis"
+date: "`r Sys.Date()`"
+author:
+  - name: Arun Seetharam
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  #pdf_document: default
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+options(max.print = "125")
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
+)
+knitr::opts_knit$set(width = 75)
+```
+# Environment Setup
+
+```{bash eval = FALSE}
+salloc -N 1 --exclusive -p amd -t 8:00:00
+# use the same env used for #1 
+conda activate smallrna
+# working dir
+mkdir -p /work/LAS/geetu-lab/arnstrm/mouse.ev.RNAseq
+cd /work/LAS/geetu-lab/arnstrm/mouse.ev.RNAseq
+# file structure
+tree -L 1
+.
+├── 1_data
+├── 2_fastqc
+├── 3_STAR-mapping
+├── 4_featureCounts
+└── 5_multiqc
+```
+
+## Raw data
+
+Raw data was downloaded from the sequencing facility using the `rsync` command, with authentication. The downloaded files were checked for md5sum and compared against list of files expected as per the input samples provided.
+
+```{bash, eval=FALSE, engine="sh"}
+cd 1_data
+rsync -rltvPh ext-arnstrm@download.bioinformatics.missouri.edu:xyz .
+# link masked 
+# GEO link will be included later
+```
+
+
+## Genome/annotation
+
+Additional files required for the analyses were downloaded from [GenCode](https://www.gencodegenes.org/mouse/). The downloaded files are as follows:
+
+```{bash eval = FALSE} 
+cd 3_STAR-mapping
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/GRCm39.primary_assembly.genome.fa.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/gencode.vM30.annotation.gff3.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/gencode.vM30.annotation.gtf.gz
+gunzip GRCm39.primary_assembly.genome.fa.gz
+gunzip gencode.vM30.annotation.gff3.gz
+gunzip gencode.vM30.annotation.gtf.gz
+# ids for prot coding genes
+awk '$3=="gene" {print $9}' gencode.vM30.annotation.gff3 |\
+  cut -f 1-3 -d ";" |\
+  sed -e 's/;/\t/g' -e 's/gene_id=//g' -e 's/ID=//g' |\
+  grep "gene_type=protein_coding" |\
+  cut -f 1 > mm10.protein_coding
+```
+
+
+## FastQC
+
+Quality inspection of the reads. The `multiqc` report, collating all samples together are provided as html file.
+
+```{bash eval = FALSE}
+cd 2_fastqc
+for fq in ../1_data/*.fq.gz; do
+  fastqc --threads $SLURM_JOB_CPUS_PER_NODE $fq;
+done
+```
+
+
+# Mapping
+
+To index the genome, following command was run (in an interactive session).
+
+```{bash eval = FALSE} 
+fastaGenome="GRCm39.genome.fa"
+gtf="gencode.vM30.annotation.gtf"
+STAR --runThreadN $SLURM_JOB_CPUS_PER_NODE \
+     --runMode genomeGenerate \
+     --genomeDir $(pwd) \
+     --genomeFastaFiles $fastaGenome \
+     --sjdbGTFfile $gtf \
+     --sjdbOverhang 1
+```
+Each `fastq` file was mapped to the indexed genome as using `runSTAR_map.sh` script shown below:
+
+```{bash eval = FALSE}
+#!/bin/bash
+read1=$1
+read2=$(echo ${read1} | sed 's/_L003_R1_001.fastq.gz/_L003_R2_001.fastq.gz/g')
+cpus=${SLURM_JOB_CPUS_PER_NODE}
+out=$(basename ${read1} | sed 's/_L003_R1_001.fastq.gz//g')
+index=/work/LAS/geetu-lab/arnstrm/GRCm39_index
+STAR \
+--runThreadN ${cpus} \
+--genomeDir ${index} \
+--outSAMtype BAM SortedByCoordinate \
+--quantMode GeneCounts \
+--outFilterScoreMinOverLread 0.3 \
+--outFilterMatchNminOverLread 0.3 \
+--outFileNamePrefix ${out}_ \
+--readFilesCommand zcat \
+--outWigType bedGraph \
+--outWigStrand Unstranded \
+--outWigNorm RPM \
+--readFilesIn ${read1} ${read2}
+```
+
+Mapping was run with a simple loop:
+
+```{bash eval = FALSE}
+for fq in *_R1_*fastq.gz; do
+  runSTAR_map.sh $fq;
+done
+```
+
+# Counts
+
+For generating counts from the mapped reads, we used `subread` package program `featureCounts`. All bam files were supplied togehter to generate a single count file for individual samples.
+
+```{bash eval = FALSE}
+cd 3_STAR-mapping
+realpath *.bam > ../4_featureCounts/bam.fofn
+cd ../4_featureCounts
+while read line; do
+ln -s $line;
+done
+featureCounts \
+   -T ${SLURM_CPUS_ON_NODE} \
+   -a gencode.vM30.annotation.gtf \
+   -t exon \
+   -g gene_id \
+   -p \
+   -B \
+   --countReadPairs \
+   -o merged_counts.txt \
+   --tmpDir ./tmp *.bam
+```
+
+The generated counts file was processed to use it direclty with `DESeq2`
+
+```{bash eval = FALSE}
+cut -f 1,7- merged_counts.txt |\
+   grep -v "^#" |\
+  sed 's/_S...\?_Aligned.sortedByCoord.out.bam//g' |\
+  sed 's/mNCSC_//g' > merged_counts-clean.tsv
+grep -Fw -f mm10.protein_coding merged_counts-clean.tsv > body
+head -n 1 merged_counts-clean.tsv > head
+cat head body >> merged_counts-clean-prot.tsv
+rm head body
+```
+
+Create a info file:
+
+```{bash eval = FALSE}
+head -n 1 merged_counts-clean.tsv |\
+   tr "\t" "\n" |\
+   grep -v "^Geneid" |\
+   awk '{print $1"\t"$1}' |\
+   sed 's/_.$//g' > info.tsv
+```
+
+# Differential expression analysis 
+
+Differential expression (DE) analyses using `DESeq2` was performed as shown below.
+
+## Prerequisites
+
+R packages required for this section are loaded
+
+```{r, warnings=TRUE, message=FALSE}
+# set path
+setwd("/work/LAS/geetu-lab/arnstrm/mouse.trophoblast.smallRNAseq")
+# load the modules
+library(tidyverse)
+library(DESeq2)
+library(vsn)
+library(pheatmap)
+library(ggrepel)
+library(RColorBrewer)
+library(reshape2)
+require(biomaRt)
+library(TissueEnrich)
+library(plotly)
+library(cowplot)
+library(biomaRt)
+library(scales)
+library(kableExtra)
+library(htmlwidgets)
+library(DT)
+library(enrichR)
+```
+
+
+## Import datasets
+
+The `counts` data and its associated metadata (`coldata`) are imported for analyses.
+
+```{r datasetS, warnings=TRUE, message=FALSE}
+countsFile = 'assets/merged_counts-clean-prot.tsv'
+groupFile = 'assets/info.tsv'
+coldata <-
+  read.csv(
+    groupFile,
+    row.names = 1,
+    sep = "\t",
+    header = FALSE,
+    stringsAsFactors = TRUE
+  )
+colnames(coldata) <- "condition"
+cts <- as.matrix(read.delim(countsFile, row.names = 1, header = TRUE))
+```
+
+Reorder columns of `cts` according to `coldata` rows. Check if samples in both files match.
+
+```{r order2, warnings=TRUE, message=FALSE}
+all(rownames(coldata) %in% colnames(cts))
+cts <- cts[, rownames(coldata)]
+```
+
+## DESeq2
+
+The batch corrected read counts are then used for running DESeq2 analyses
+
+```{r deseq2C, warnings=TRUE, message=FALSE}
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ condition)
+vsd <- vst(dds, blind = FALSE)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep, ]
+dds <- DESeq(dds)
+```
+
+## PCA plot for QC
+
+PCA plot for the dataset that includes all libraries.
+
+```{r pcaFull_C1-C2, fig.cap="Figure 4: PCA plot for the first 2 principal components", fig.width=8, fig.height=5}
+rv <- rowVars(assay(vsd))
+pcaData <-
+  plotPCA(vsd,
+          intgroup = "condition",
+          returnData = TRUE)
+percenttVar1 <- round(100 * attr(pcaData, "percentVar"))
+# @ Thomas W. Battaglia
+
+#' Plot DESeq2's PCA plotting with Plotly 3D scatterplot
+#'
+#' The function will generate a plot_ly 3D scatter plot image for
+#' a 3D exploration of the PCA.
+#'
+#' @param object a DESeqTransform object, with data in assay(x), produced for example by either rlog or varianceStabilizingTransformation.
+#' @param intgroup interesting groups: a character vector of names in colData(x) to use for grouping
+#' @param ntop number of top genes to use for principal components, selected by highest row variance
+#' @param returnData should the function only return the data.frame of PC1, PC2 and PC3 with intgroup covariates for custom plotting (default is FALSE)
+#' @return An object created by plot_ly, which can be assigned and further customized.
+#' @export
+plotPCA3D <-
+  function (object,
+            intgroup = "condition",
+            ntop = 500,
+            returnData = FALSE) {
+    rv <- rowVars(assay(object))
+    select <-
+      order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+    pca <- prcomp(t(assay(object)[select,]))
+    percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
+    if (!all(intgroup %in% names(colData(object)))) {
+      stop("the argument 'intgroup' should specify columns of colData(dds)")
+    }
+    intgroup.df <-
+      as.data.frame(colData(object)[, intgroup, drop = FALSE])
+    group <- if (length(intgroup) > 1) {
+      factor(apply(intgroup.df, 1, paste, collapse = " : "))
+    }
+    else {
+      colData(object)[[intgroup]]
+    }
+    d <- data.frame(
+      PC1 = pca$x[, 1],
+      PC2 = pca$x[, 2],
+      PC3 = pca$x[, 3],
+      group = group,
+      intgroup.df,
+      name = colnames(object)
+    )
+    if (returnData) {
+      attr(d, "percentVar") <- percentVar[1:3]
+      return(d)
+    }
+    message("Generating plotly plot")
+    p <- plotly::plot_ly(
+      data = d,
+      x = ~ PC1,
+      y = ~ PC2,
+      z = ~ PC3,
+      color = group,
+      mode = "markers",
+      type = "scatter3d"
+    )
+    return(p)
+  }
+
+
+select <-
+  order(rv, decreasing = TRUE)[seq_len(min(500, length(rv)))]
+pca <- prcomp(t(assay(vsd)[select, ]))
+percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
+intgroup = "condition"
+intgroup.df <- as.data.frame(colData(vsd)[, intgroup, drop = FALSE])
+group <- if (length(intgroup) == 1) {
+  factor(apply(intgroup.df, 1, paste, collapse = " : "))
+}
+d <- data.frame(
+  PC1 = pca$x[, 1],
+  PC2 = pca$x[, 2],
+  intgroup.df,
+  name = colnames(vsd)
+)
+ggplot(d, aes(PC1, PC2, color = condition)) +
+  scale_shape_manual(values = 1:12) +
+  scale_color_manual(values = c('mTSC_EV' 		= '#0178c7',
+                                'No_EV' 	= '#7acc37',
+                                'pTGC_EV' = '#8e27af')) +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_point(size = 2, stroke = 2) +
+  geom_text_repel(aes(label = name)) +
+  xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
+  ylab(paste("PC2", round(percentVar[2] * 100, 2), "% variance"))
+```
+
+
+## Interactive 3D PCA plot
+
+```{r pca3d, warnings=TRUE, message=FALSE, fig.width=8, fig.height=5}
+g= plotPCA3D(vsd, intgroup = "condition")
+g
+saveWidget(g, file = "PCA.html")
+```
+
+View the [interactive 3D PCA plot ](PCA.html){target="_blank"} in a new tab.
+
+
+
+## Sample distance for QC
+
+```{r distance, fig.cap="Figure 5: Euclidean distance between samples", fig.width=8, fig.height=5}
+sampleDists <- dist(t(assay(vsd)))
+sampleDistMatrix <- as.matrix( sampleDists )
+rownames(sampleDistMatrix) <- colnames(vsd)
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists,
+         col = colors)
+
+```
+
+## Set contrasts and find DE genes
+
+```{r cotnrasts, warnings=TRUE, message=FALSE}
+res.NoEvsTSC <-
+  results(dds,
+          contrast = c(
+            "condition",
+            "No_EV",
+            "mTSC_EV"))
+res.NoEvsTGC <-
+  results(dds,
+          contrast = c(
+            "condition",
+            "No_EV",
+            "pTGC_EV"))
+```
+
+# Functions
+
+## Processing DE objects
+
+```{r processDE1, warnings=TRUE, message=FALSE}
+processDE <- function(res.se, string) {
+  fc = 1.5
+  log2fc = log(fc, base = 2)
+  neg.log2fc = log2fc * -1
+  res.se <- res.se[order(res.se$padj), ]
+  res.data <-
+    merge(as.data.frame(res.se),
+          as.data.frame(counts(dds, normalized = TRUE)),
+          by = "row.names",
+          sort = FALSE)
+  names(res.data)[1] <- "Gene"
+  res.up <-
+    res.data %>%
+    filter(log2FoldChange >= log2fc) %>%
+    filter(padj <= 0.05) %>%
+    arrange(desc(log2FoldChange)) %>%
+    dplyr::select(Gene)
+  res.dw <-
+    res.data %>%
+    filter(log2FoldChange <= neg.log2fc) %>%
+    filter(padj <= 0.05) %>%
+    arrange(desc(log2FoldChange)) %>%
+    dplyr::select(Gene)
+  res.up.new <-
+    annot[annot$ensembl_gene_id_version %in% res.up$Gene,]
+  res.dw.new <-
+    annot[annot$ensembl_gene_id_version %in% res.dw$Gene,]
+  res.data.info <-
+    left_join(res.data, mart, by = c('Gene' = 'ensembl_gene_id_version'))
+  res.data.filtered <- res.data.info %>%
+    filter(padj <= 0.05) %>%
+    filter(log2FoldChange >= log2fc | log2FoldChange <= neg.log2fc) %>%
+    arrange(desc(log2FoldChange))
+  pce.up1 <- paste0(string, ".up.pce", 1)
+  pce.dw1 <- paste0(string, ".dw.pce", 1)
+  pce.up2 <- paste0(string, ".up.pce", 2)
+  pce.dw2 <- paste0(string, ".dw.pce", 2)
+  DEGtable <- paste0(string, ".DE.table")
+  assign(pce.up1, as.character(res.up.new$ensembl_gene_id), envir = .GlobalEnv)
+  assign(pce.dw1, as.character(res.dw.new$ensembl_gene_id), envir = .GlobalEnv)
+  assign(pce.up2, as.character(res.up.new$external_gene_name), envir = .GlobalEnv)
+  assign(pce.dw2, as.character(res.dw.new$external_gene_name), envir = .GlobalEnv)
+  assign(DEGtable, res.data.info, envir = .GlobalEnv)
+  # save full table
+  write_delim(
+    res.data.info,
+    file = paste0("results/DESeq2results-", string, "_fc.tsv"),
+    delim = "\t"
+  )
+  # save filtered table (fc = 1.5 & padj <= 0.05)
+  write_delim(
+    res.data.filtered,
+    file = paste0("results/DE_", string, "_filtered.tsv"),
+    delim = "\t"
+  )
+}
+```
+## Gene information
+
+```{r martObj1, eval = FALSE}
+ensembl = useMart("ENSEMBL_MART_ENSEMBL")
+listDatasets(ensembl) %>%
+  filter(str_detect(description, "Mouse"))
+ensembl = useDataset("mmusculus_gene_ensembl", mart = ensembl)
+listFilters(ensembl) %>%
+  filter(str_detect(name, "ensembl"))
+filterType <- "ensembl_gene_id_version"
+head(rownames(counts))
+counts <- read.delim(countsFile, row.names = 1, header = TRUE)
+head(rownames(counts))
+filterValues <- rownames(counts)
+listAttributes(ensembl) %>%
+  head(20)
+attributeNames <- c('ensembl_gene_id_version',
+                    'ensembl_gene_id',
+                    'external_gene_name')
+annot <- getBM(
+  attributes = attributeNames,
+  filters = filterType,
+  values = filterValues,
+  mart = ensembl
+)
+attributeNames <- c('ensembl_gene_id_version',
+                    'gene_biotype',
+                    'external_gene_name',
+                    'description')
+mart <- getBM(
+  attributes = attributeNames,
+  filters = filterType,
+  values = filterValues,
+  mart = ensembl
+)
+write_delim(
+  annot,
+  file = "assets/annot.tsv",
+  delim = "\t"
+)
+write_delim(
+  mart,
+  file = "assets/mart.tsv",
+  delim = "\t"
+)    
+```
+
+Files were saved, so we don't query BioMart everytime we run the markdown. The files will be loaded, instead
+
+```{r martObj2, warnings=TRUE, message=FALSE}
+mart <-
+    read.csv(
+        "assets/mart.tsv",
+        sep = "\t",
+        header = TRUE,
+    )
+annot <-
+    read.csv(
+        "assets/annot.tsv",
+        sep = "\t",
+        header = TRUE,
+    )
+```
+
+## Volcano plotting function
+
+```{r volFunc, warnings=TRUE, message=FALSE}
+g <- volcanoPlots <-
+  function(res.se,
+           string,
+           first,
+           second,
+           color1,
+           color2,
+           color3,
+           ChartTitle) {
+    fc = 1.5
+    log2fc = log(fc, base = 2)
+    neg.log2fc = log2fc * -1
+    res.se <- res.se[order(res.se$padj),]
+    res.se <-
+      rownames_to_column(as.data.frame(res.se[order(res.se$padj), ]))
+    names(res.se)[1] <- "Gene"
+    res.data <-
+      merge(res.se,
+            mart,
+            by.x = "Gene",
+            by.y = "ensembl_gene_id_version")
+    res.data <- res.data %>% mutate_all(na_if, "")
+    res.data <- res.data %>% mutate_all(na_if, " ")
+    res.data <-
+      res.data %>% mutate(external_gene_name = coalesce(external_gene_name, Gene))
+    res.data$diffexpressed <- "other.genes"
+    res.data$diffexpressed[res.data$log2FoldChange >= log2fc &
+                             res.data$padj <= 0.05] <-
+      paste("Higher expression in", first)
+    res.data$diffexpressed[res.data$log2FoldChange <= neg.log2fc &
+                             res.data$padj <= 0.05] <-
+      paste("Higher expression in", second)
+    upgenes <- res.data %>%
+      dplyr::filter(log2FoldChange >= log2fc & padj <= 0.05) %>%
+      arrange(desc(log2FoldChange)) %>%
+      mutate(delabel = external_gene_name) %>%
+      select(Gene, delabel) %>%
+      top_n(10)
+    downgenes <- res.data %>%
+      dplyr::filter(log2FoldChange <= neg.log2fc &
+                      padj <= 0.05) %>%
+      arrange(desc(log2FoldChange)) %>%
+      mutate(delabel = external_gene_name) %>%
+      select(Gene, delabel) %>%
+      top_n(10)
+    fullgenes <- rbind(upgenes, downgenes)
+    res.data <- left_join(res.data, fullgenes, by = "Gene")
+    res.data$delabel[res.data$external_gene_name == "Htr2b"] <-
+      "Htr2b"
+    ggplot(res.data,
+           aes(
+             x = log2FoldChange,
+             y = -log10(padj),
+             col = diffexpressed,
+             label = delabel
+           )) +
+      geom_point(alpha = 0.5) +
+      xlim(-2.5, 2.5) +
+      theme_classic() +
+      scale_color_manual(name = "Expression", values = c(color1, color3, color2)) +
+       geom_label_repel(
+        data = res.data,
+        aes(size = 0.5, point.size = 0.5),
+        max.overlaps = Inf,
+        force_pull   = 0,
+        min.segment.length = 0.5,
+        show.legend = F,
+        seed = 11,
+        box.padding = 0.5
+) +
+      ggtitle(ChartTitle) +
+      xlab(paste("log2 fold change")) +
+      ylab("-log10 pvalue (adjusted)") +
+      theme(legend.text.align = 0)
+  }
+
+```
+
+## TissueEnrich function
+
+```{r TEfunc, warnings=TRUE, message=FALSE}
+source("assets/theme_clean.R")
+plotTE <- function(inputGenes = gene.list,
+                   myColor = "color") {
+  gs <-
+    GeneSet(geneIds = inputGenes,
+            organism = "Mus Musculus",
+            geneIdType = SymbolIdentifier())
+  output <- teEnrichment(inputGenes = gs, rnaSeqDataset = 3)
+  en.output <-
+    setNames(data.frame(assay(output[[1]]),
+                        row.names = rowData(output[[1]])[, 1]),
+             colData(output[[1]])[, 1])
+  en.output$Tissue <- rownames(en.output)
+  logp <- -log10(0.05)
+  en.output <-
+    mutate(en.output,
+           significance = ifelse(Log10PValue > logp,
+                                 "colored", "nocolor"))
+  en.output$Sig <- "NA"
+  ggplot(en.output, aes(reorder(Tissue, Log10PValue),
+                        Log10PValue,
+                        fill = significance)) +
+    geom_bar(stat = 'identity') +
+    theme_clean() + ylab("- log10 adj. p-value") + xlab("") +
+    scale_fill_manual(values = c("colored" = myColor, "nocolor" = "gray")) +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)),
+                       breaks = scales::pretty_breaks()) +
+    coord_flip()
+}
+```
+## enrichR function
+
+```{r ENfunc, warnings=TRUE, message=FALSE}
+plotEnrichR <- function(enriched, table="string", myColor = "slateblue") {
+  logp <- -log10(0.05)
+  myData <- enriched[[table]]
+  myData$negLogP <-  -log10(myData$P.value)
+  myData <-
+    mutate(myData,
+           significance = ifelse(negLogP > logp, "colored", "nocolor"))
+  myData$Sig <- "NA"
+  myData <- head(arrange(myData, -negLogP, Term), 15)
+  ggplot(myData, aes(reorder(Term, negLogP),
+                     negLogP,
+                     fill = significance)) +
+    geom_bar(stat = 'identity') +
+    theme_clean() + ylab("- log10 p-value") + xlab("") +
+    scale_fill_manual(values = c("colored" = myColor, "nocolor" = "gray")) +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)),
+                       breaks = scales::pretty_breaks()) +
+    coord_flip()
+}
+```
+
+# Results
+
+## Write files
+
+```{r processDE2, warnings=TRUE, message=FALSE}
+processDE(res.NoEvsTSC, "NoEvsTSC")
+processDE(res.NoEvsTGC, "NoEvsTGC")
+```
+## Htr2b gene expression
+
+```{r htr2b, fig.cap="placeholder", fig.width=4, fig.height=4, warning=FALSE, message=FALSE}
+geneCounts <-
+  as.data.frame(counts(dds, normalized = TRUE)["ENSMUSG00000026228.7", ])
+colnames(geneCounts) <- "normalizedCounts"
+geneCounts <- geneCounts %>% 
+  rownames_to_column("condition") %>% 
+  mutate(condition = str_sub(condition, 1, str_length(condition)-2))
+geneCounts$condition <- factor(geneCounts$condition, 
+                               levels=c('No_EV', 'mTSC_EV', 'pTGC_EV'))
+g <- ggplot(geneCounts, aes(x = condition, y = normalizedCounts, fill = condition)) +
+  geom_boxplot(color = "black") +
+  stat_summary(
+    fun.y = mean,
+    geom = "point",
+    shape = 23,
+    size = 2
+  ) + 
+  geom_dotplot(
+    binaxis = 'y',
+    binwidth = 1,
+    stackdir = 'center',
+    dotsize = 0.75
+  ) +
+  scale_fill_manual(values = c(
+    "No_EV" = "#7acc37",
+    "mTSC_EV" = "#0178c7",
+    "pTGC_EV" = "#8e27af"
+  )) +
+  theme_clean()
+g
+```
+## Volcano plots {.tabset}
+
+### no_EVs vs. pTGC_EV
+
+```{r vol2, fig.cap="Fig X: No_EVs vs. pTGC_EVs", fig.width=10, fig.height=6, warnings=FALSE, message=FALSE}
+g <- volcanoPlots(
+  res.NoEvsTGC,
+  "NoEvsTGC",
+  "No_EVs",
+  "pTGC_EVs",
+  "#7acc37",
+  "#4d4d4d",
+  "#8e27af",
+  ChartTitle = "No_EVs vs. pTGC_EVs"
+)
+g
+```
+
+### No_EVs vs. mTSC_EV
+
+```{r vol1, fig.cap="Fig X: No_EVs vs. pTSC_EVs", fig.width=10, fig.height=6, warnings=FALSE, message=FALSE}
+g <- volcanoPlots(
+  res.NoEvsTSC,
+  "NoEvsTSC",
+  "No_EVs",
+  "mTSC_EV",
+  "#0178c7",
+  "#4d4d4d",
+  "#7acc37",
+  ChartTitle = "No_EVs vs. mTSC_EV"
+)
+g
+```
+
+
+## TE: No_EV vs. pTGC {.tabset}
+
+### up in NoEvs
+
+```{r TE1, fig.cap="Fig X: TE for genes upregulated in No_EV samples", fig.width=8, fig.height=5, warnings=FALSE, message=FALSE}
+plotTE(unique(NoEvsTGC.up.pce2), "#7acc37")
+```
+
+### up in pTGC
+
+```{r TE2, fig.cap="Fig X: TE for genes upregulated in pTGC samples", fig.width=8, fig.height=5, warnings=FALSE, message=FALSE}
+plotTE(unique(NoEvsTGC.dw.pce2), "#8e27af")
+```
+
+## TE: No_EV vs. mTSC {.tabset}
+
+### up in NoEvs
+
+```{r TE3, fig.cap="Fig X: TE for genes upregulated in No_EV sample ", fig.width=8, fig.height=5, warnings=FALSE, message=FALSE}
+plotTE(unique(NoEvsTSC.up.pce2), "#7acc37")
+```
+
+### up in mTSC
+
+```{r TE4, fig.cap="Fig X: TE for genes upregulated in mTSC samples", fig.width=8, fig.height=5, warnings=FALSE, message=FALSE}
+plotTE(unique(NoEvsTSC.dw.pce2), "#0178c7")
+```
+
+
+# Enrichment Analyses
+
+
+```{r enrichR, warnings=TRUE, message=FALSE}
+setEnrichrSite("Enrichr")
+websiteLive <- TRUE
+myDBs <-
+  c(
+    "DisGeNET",
+    "WikiPathways_2019_Human",
+    "WikiPathways_2019_Mouse",
+    "KEGG_2019_Mouse"
+  )
+if (websiteLive) {
+  NoEvsTGC.up.enriched <- enrichr(NoEvsTGC.up.pce2, myDBs)
+  Sys.sleep(60)
+  NoEvsTGC.dw.enriched <- enrichr(NoEvsTGC.dw.pce2, myDBs)
+  Sys.sleep(60)
+  NoEvsTSC.up.enriched <- enrichr(NoEvsTSC.up.pce2, myDBs)
+  Sys.sleep(60)
+  NoEvsTSC.dw.enriched <- enrichr(NoEvsTSC.dw.pce2, myDBs)
+}
+```
+
+## up in NoEvs (No_EV vs. pTGC) {.tabset}
+
+
+### DisGeNET
+```{r erA1, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.up.enriched, table="DisGeNET" , myColor = "#7acc37")
+```
+
+### WikiPathways_2019_Human
+
+```{r erA8, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.up.enriched, table="WikiPathways_2019_Human" , "#7acc37")
+```
+
+### WikiPathways_2019_Mouse
+   
+```{r erA9, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.up.enriched, table="WikiPathways_2019_Mouse" , "#7acc37")
+```
+### KEGG_2019_Mouse
+   
+```{r erA10, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.up.enriched, table="KEGG_2019_Mouse" , "#7acc37")
+```
+ 
+
+## up in pTGC (No_EV vs. pTGC) {.tabset}
+
+
+### DisGeNET
+```{r erB1, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.dw.enriched, table="DisGeNET" , myColor = "#8e27af")
+```
+
+### WikiPathways_2019_Human
+
+```{r erB2, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.dw.enriched, table="WikiPathways_2019_Human" , "#8e27af")
+```
+
+### WikiPathways_2019_Mouse
+   
+```{r erB3, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.dw.enriched, table="WikiPathways_2019_Mouse" , "#8e27af")
+```
+
+### KEGG_2019_Mouse
+   
+```{r erB10, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.dw.enriched, table="KEGG_2019_Mouse" , "#8e27af")
+```
+
+## up in NoEvs (No_EV vs. mTSC) {.tabset}
+
+
+
+### DisGeNET
+```{r erc1, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTSC.up.enriched, table="DisGeNET" , myColor = "#7acc37")
+```
+
+### WikiPathways_2019_Human
+
+```{r erc8, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTSC.up.enriched, table="WikiPathways_2019_Human" , "#7acc37")
+```
+
+### WikiPathways_2019_Mouse
+   
+```{r erc9, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.up.enriched, table="WikiPathways_2019_Mouse" , "#7acc37")
+```
+
+### KEGG_2019_Mouse
+   
+```{r erc10, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTGC.up.enriched, table="KEGG_2019_Mouse" , "#7acc37")
+```
+
+## up in mTSC (No_EV vs. mTSC) {.tabset}
+
+
+### DisGeNET
+```{r erd1, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTSC.dw.enriched, table="DisGeNET" , myColor = "#0178c7")
+```
+
+### WikiPathways_2019_Human
+
+```{r erd8, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTSC.dw.enriched, table="WikiPathways_2019_Human" , "#0178c7")
+```
+
+### WikiPathways_2019_Mouse
+   
+```{r erd9, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTSC.dw.enriched, table="WikiPathways_2019_Mouse" , "#0178c7")
+```
+
+### KEGG_2019_Mouse
+   
+```{r erd10, fig.cap="placeholder", fig.width=12, fig.height=5, warnings=FALSE, message=FALSE}
+plotEnrichR(NoEvsTSC.dw.enriched, table="KEGG_2019_Mouse" , "#0178c7")
+```
+
+
+# Overlap analyses
+
+For the top quartile (expression) miRNAs, targets were predicted in the previous sheet. Here we will import them (both target gene lists as well as brain specific target gene lists) and perform overlap analyses with the bulk RNAseq results.
+
+```{r importTargets, warnings=FALSE, message=FALSE}
+brainGeneLists <- readRDS("results/brainGeneLists.rds")
+targetLists <- readRDS("results/targetsLists_75pc.rds")
+```
+
+```{r ovlMergeFunction, warnings=FALSE, message=FALSE}
+mergeTargetsWithDEG <- function(deTable = NoEvsTSC.DE.table,
+                                targetTable = targetLists$miRNAs_75pc_pTGC,
+                                brainGenes = brainGeneLists$brEnrTargets_75pc_pTGC) {
+ # thresholds
+  fc = 1.5
+  log2fc = log(fc, base = 2)
+  neg.log2fc = log2fc * -1
+  # make clean DE table
+  cleanDE <- deTable %>%
+    dplyr::select(Gene, log2FoldChange, padj, external_gene_name, description) %>%
+    mutate(Gene = gsub("\\..*", "", Gene))
+  # make clean brain gene list
+  brainPAV <- as.data.frame(brainGenes) %>%
+    rename(SYMBOL = 1)  %>%
+    mutate(SYMBOL = toupper(SYMBOL), BrainSpecific = 1)
+  # merge targets with clean tables
+  mergedTable <-
+    targetTable %>%
+    left_join(cleanDE, by = c("ENSEMBL" = "Gene")) %>%
+    mutate(SYMBOL = toupper(SYMBOL)) %>%
+    mutate(RNAseq = case_when((log2FoldChange > log2fc &
+                                 padj <= 0.05) ~ 'up',
+                              (log2FoldChange < neg.log2fc &
+                                 padj <= 0.05) ~ 'down',
+                              TRUE ~ 'NA'
+    )) %>%
+    dplyr::select(mirbase_id, ENSEMBL, SYMBOL, RNAseq, log2FoldChange, padj, description) %>%
+    left_join(as_tibble(brainPAV), by = "SYMBOL") %>%
+    filter(mirbase_id != "") %>% distinct()
+  mergedTable
+}
+```
+
+```{r summaryTableFun, warnings=FALSE, message=FALSE}
+createSummaryTable <-
+  function(mergedTabe = NoEvsTSC.DE_with_pTGC.75pc_targets) {
+    t1 <- mergedTabe %>%
+      group_by(mirbase_id, RNAseq) %>%
+      summarise(BrainIntersecting = sum(!is.na(BrainSpecific))) %>%
+      filter(mirbase_id != "") %>%
+      group_by(mirbase_id) %>%
+      spread(RNAseq, BrainIntersecting) %>%
+      select(mirbase_id, down, up, `NA`) %>%
+      rename(brainDownDE = down,
+             brainUpDE = up,
+             Brain.NA = `NA`) %>%
+      mutate(totalBrain = sum(brainDownDE, 
+                              Brain.NA, 
+                              brainUpDE, 
+                              na.rm =TRUE))
+    t2 <- mergedTabe %>%
+      group_by(mirbase_id, RNAseq) %>%
+      summarise(AllIntersecting = n()) %>%
+      filter(mirbase_id != "") %>%
+      group_by(mirbase_id) %>%
+      spread(RNAseq, AllIntersecting) %>%
+      select(mirbase_id, down, up, `NA`) %>%
+      rename(
+        TargetsDownDE = down,
+        TargetsUpDE = up,
+        TargetsNA = `NA`
+      ) %>%
+      mutate(totalTargets = sum(TargetsDownDE, 
+                                TargetsUpDE, 
+                                TargetsNA, 
+                                na.rm =TRUE))
+    summaryTable <- inner_join(t1, t2, by = "mirbase_id")
+    summaryTable
+  }
+```
+
+
+```{r OVLmTSC, warnings=FALSE, message=FALSE}
+NoEvsTSC.DE_with_mTSC.75pc_targets <-
+  mergeTargetsWithDEG(
+    deTable = NoEvsTSC.DE.table,
+    targetTable = targetLists$miRNAs_75pc_mTSC,
+    brainGenes = brainGeneLists$brEnrTargets_75pc_mTSC
+  )
+NoEvsTSC.DE_with_mTSC.75pc_summary <-
+  createSummaryTable(NoEvsTSC.DE_with_mTSC.75pc_targets)
+write_delim(
+  NoEvsTSC.DE_with_mTSC.75pc_targets ,
+  "results/NoEvsTSC.DE_with_mTSC.75pc_targets.tsv",
+  delim = "\t"
+)
+write_delim(
+  NoEvsTSC.DE_with_mTSC.75pc_summary,
+  "results/NoEvsTSC.DE_with_mTSC.75pc_summary.tsv",
+  delim = "\t"
+)
+```
+
+```{r OVLpTGC, warnings=FALSE, message=FALSE}
+NoEvsTGC.DE_with_pTGC.75pc_targets <-
+  mergeTargetsWithDEG(
+    deTable = NoEvsTGC.DE.table,
+    targetTable = targetLists$miRNAs_75pc_pTGC,
+    brainGenes = brainGeneLists$brEnrTargets_75pc_pTGC
+  )
+NoEvsTGC.DE_with_pTGC.75pc_summary <- 
+  createSummaryTable(NoEvsTGC.DE_with_pTGC.75pc_targets)
+write_delim(
+  NoEvsTGC.DE_with_pTGC.75pc_targets,
+  "results/NoEvsTGC.DE_with_pTGC.75pc_targets.tsv",
+  delim = "\t"
+)
+write_delim(
+  NoEvsTGC.DE_with_pTGC.75pc_summary,
+  "results/NoEvsTGC.DE_with_pTGC.75pc_summary.tsv",
+  delim = "\t"
+)
+```
+
+
+# MultiQC report
+
+MultiQC report is available at this [link](assets/multiqc_bulkRNAseq.html){target="_blank"}
+
+# Session Information
+
+```{r sessioninfo}
+sessionInfo()
+```
+
+

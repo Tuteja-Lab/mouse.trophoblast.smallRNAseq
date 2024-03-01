@@ -37,10 +37,11 @@ Performed  at [Tuteja Lab](https://www.tutejalab.org), Iowa State University, Am
 
 ### Documentation
 
-The Wiki for the entire analyses is provided in this R-markdown files [`1_smallRNAseq.Rmd`](1_smallRNAseq.Rmd) and [`2_proteomics.Rmd`](2_proteomics.Rmd). The rendered html file is accessible on this link:
+The Wiki for the entire analyses is provided in this R-markdown files [`1_smallRNAseq.Rmd`](1_smallRNAseq.Rmd), [`2_proteomics.Rmd`](2_proteomics.Rmd) and [`3_bulkRNAseq.Rmd`](3_bulkRNAseq.Rmd). The rendered html file is accessible on this link:
 
 1. [Small RNAseq analyses](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq/1_smallRNAseq.html)
 2. [Proteomics analyses](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq/2_proteomics.html)
+3. [Bulk RNAseq analyses](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq/3_bulkRNAseq.html)
 
 ### Data availability
 
@@ -57,8 +58,6 @@ The Wiki for the entire analyses is provided in this R-markdown files [`1_smallR
 
 If you use the scripts from this repository in your research, please cite this publication:
 
-_coming soon_
-
-Kinkade, J. A., Seetharam, A. S., Sachdev, S., Bivens, N. J., Phinney, B. S., Grigorean, G., Roberts, R. M., Tuteja, G., Rosenfeld, C. S., Extracellular Vesicle Contents of Mouse Trophoblast Cells and Their Predicted Influence on Fetal Brain Development _(in preparation)_
+Jessica A Kinkade, Arun S Seetharam, Shrikesh Sachdev, Nathan J Bivens, Brett S Phinney, Gabriela Grigorean, R Michael Roberts, Geetu Tuteja, Cheryl S Rosenfeld, Extracellular vesicles from mouse trophoblast cells: Effects on neural progenitor cells and potential participants in the placenta–brain axis, Biology of Reproduction, Volume 110, Issue 2, February 2024, Pages 310–328, DOI: [10.1093/biolre/ioad146](https://doi.org/10.1093/biolre/ioad146)
 
 
