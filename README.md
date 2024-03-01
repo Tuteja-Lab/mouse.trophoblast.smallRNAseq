@@ -9,6 +9,7 @@ Links for the sections are provided below:
 
 1. [Small RNAseq analyses](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq/1_smallRNAseq.html)
 2. [Proteomics analyses](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq/2_proteomics.html)
+3. [Bulk RNA-seq analyses](https://tuteja-lab.github.io/mouse.trophoblast.smallRNAseq/3_bulkRNAseq.html)
 
 ### Data availability
 
@@ -25,9 +26,7 @@ Links for the sections are provided below:
 
 If you use the scripts from this repository in your research, please cite this publication:
 
-_coming soon_
-
-Kinkade, J. A., Seetharam, A. S., Sachdev, S., Bivens, N. J., Phinney, B. S., Grigorean, G., Roberts, R. M., Tuteja, G., Rosenfeld, C. S., Extracellular Vesicle Contents of Mouse Trophoblast Cells and Their Predicted Influence on Fetal Brain Development (in preparation)
+Jessica A Kinkade, Arun S Seetharam, Shrikesh Sachdev, Nathan J Bivens, Brett S Phinney, Gabriela Grigorean, R Michael Roberts, Geetu Tuteja, Cheryl S Rosenfeld, Extracellular vesicles from mouse trophoblast cells: Effects on neural progenitor cells and potential participants in the placenta–brain axis, Biology of Reproduction, Volume 110, Issue 2, February 2024, Pages 310–328, DOI: [10.1093/biolre/ioad146](https://doi.org/10.1093/biolre/ioad146)
 
 
 
